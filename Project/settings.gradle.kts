@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "HillClimbRacing"
 include(":app")
+include(":a2dg")
