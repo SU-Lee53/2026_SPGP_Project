@@ -42,6 +42,7 @@ android {
 
 dependencies {
     implementation(project(":a2dg"))
+    implementation("androidx.compose.ui:ui-graphics:1.11.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

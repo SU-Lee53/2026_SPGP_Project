@@ -1,8 +1,9 @@
-package com.example.hillclimbracing
+package com.example.hillclimbracing.scene
 
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.view.MotionEvent
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.Scene
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 
@@ -22,4 +23,10 @@ class TitleScene(gctx: GameContext) : Scene(gctx) {
             paint
         )
     }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        GameScene(gctx).push()
+        return true
+    }
+
 }
