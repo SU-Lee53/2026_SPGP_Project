@@ -32,7 +32,7 @@ class TitleScene(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-            MainScene(gctx).change()
+            GameScene(gctx).change()
             return true
         }
         return true
