@@ -7,9 +7,10 @@ import android.graphics.RectF
 import androidx.core.graphics.withRotation
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
-import kotlin.compareTo
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.sin
 
 class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject {
@@ -33,33 +34,40 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
     private var angularVelocity = 0f
 
-    private data class Wheel(
+    private class Wheel(
         val localX: Float,
-        val localY: Float,
+        val anchorLocalY: Float,
         val radius: Float,
-    )
+        var suspensionLength: Float,
+    ) {
+        var previousCompression = 0f
+    }
 
     private data class WheelSample(
-        val centerX: Float,
-        val centerY: Float,
+        val wheel: Wheel,
+        val anchorX: Float,
+        val anchorY: Float,
         val groundY: Float,
-        val penetration: Float,
-        val targetBodyY: Float,
-        val isCloseEnough: Boolean,
+        val distanceToGround: Float,
+        val compression: Float,
+        val compressionVelocity: Float,
+        val hardPenetration: Float,
+        val isContacting: Boolean,
     )
 
     private val rearWheel = Wheel(
         localX = -WHEEL_HALF_DISTANCE,
-        localY = WHEEL_CENTER_OFFSET_Y,
+        anchorLocalY = WHEEL_ANCHOR_OFFSET_Y,
         radius = WHEEL_RADIUS,
+        suspensionLength = SUSPENSION_REST_LENGTH,
     )
 
     private val frontWheel = Wheel(
         localX = WHEEL_HALF_DISTANCE,
-        localY = WHEEL_CENTER_OFFSET_Y,
+        anchorLocalY = WHEEL_ANCHOR_OFFSET_Y,
         radius = WHEEL_RADIUS,
+        suspensionLength = SUSPENSION_REST_LENGTH,
     )
-
     private var angleRadians = 0f
 
     private val bodyRect = RectF()
@@ -107,7 +115,14 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
             velocityX -= BRAKE_ACCEL * dt
         }
 
-        velocityX *= if (isGrounded) GROUND_FRICTION else AIR_FRICTION
+        val friction = when {
+            isAccelerating -> DRIVE_FRICTION
+            isBraking -> BRAKE_FRICTION
+            isGrounded -> GROUND_FRICTION
+            else -> AIR_FRICTION
+        }
+
+        velocityX *= friction
         velocityX = velocityX.coerceIn(0f, MAX_SPEED)
 
         worldX += velocityX * dt
@@ -119,61 +134,96 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         y += velocityY * dt
     }
-    private fun sampleWheel(wheel: Wheel): WheelSample {
-        val cosA = kotlin.math.cos(angleRadians)
-        val sinA = kotlin.math.sin(angleRadians)
+    private fun sampleWheel(wheel: Wheel, dt: Float): WheelSample {
+        val cosA = cos(angleRadians)
+        val sinA = sin(angleRadians)
 
-        val centerX = worldX + wheel.localX * cosA - wheel.localY * sinA
-        val centerY = y + wheel.localX * sinA + wheel.localY * cosA
+        // 서스펜션 anchor 위치.
+        // 바퀴 중심이 아니라 차체에 서스펜션이 매달린 지점이다.
+        val anchorX = worldX + wheel.localX * cosA - wheel.anchorLocalY * sinA
+        val anchorY = y + wheel.localX * sinA + wheel.anchorLocalY * cosA
 
-        val groundY = terrain.getGroundY(centerX)
+        val groundY = terrain.getGroundY(anchorX)
 
-        // y가 아래로 증가하는 좌표계.
-        // wheelBottomY > groundY 이면 바퀴가 땅을 파고든 상태.
-        val wheelBottomY = centerY + wheel.radius
-        val penetration = wheelBottomY - groundY
+        // anchor에서 지면까지 바퀴 반지름을 뺀 거리.
+        // 이 값이 suspensionLength가 되면 바퀴 바닥이 지면에 닿는다.
+        val distanceToGround = groundY - anchorY - wheel.radius
 
-        // 이 바퀴가 지면에 정확히 닿으려면 body center y가 어디여야 하는지
-        val wheelOffsetY = wheel.localX * sinA + wheel.localY * cosA
-        val targetBodyY = groundY - wheelOffsetY - wheel.radius
+        val isContacting = distanceToGround <= SUSPENSION_MAX_LENGTH
 
-        val isCloseEnough = penetration >= -GROUND_SNAP_DISTANCE
+        val targetSuspensionLength = if (isContacting) {
+            distanceToGround.coerceIn(SUSPENSION_MIN_LENGTH, SUSPENSION_MAX_LENGTH)
+        } else {
+            SUSPENSION_MAX_LENGTH
+        }
+
+        wheel.suspensionLength = lerp(
+            wheel.suspensionLength,
+            targetSuspensionLength,
+            (SUSPENSION_VISUAL_FOLLOW_SPEED * dt).coerceAtMost(1f),
+        )
+
+        val compression = if (isContacting) {
+            (SUSPENSION_REST_LENGTH - targetSuspensionLength)
+                .coerceIn(0f, SUSPENSION_REST_LENGTH - SUSPENSION_MIN_LENGTH)
+        } else {
+            0f
+        }
+
+        val compressionVelocity = if (dt > 0f) {
+            (compression - wheel.previousCompression) / dt
+        } else {
+            0f
+        }
+
+        wheel.previousCompression = compression
+
+        // 서스펜션이 최대로 눌렸는데도 땅을 파고든 경우에는
+        // 차체를 강제로 조금 밀어올려야 한다.
+        val hardPenetration = if (distanceToGround < SUSPENSION_MIN_LENGTH) {
+            SUSPENSION_MIN_LENGTH - distanceToGround
+        } else {
+            0f
+        }
 
         return WheelSample(
-            centerX = centerX,
-            centerY = centerY,
+            wheel = wheel,
+            anchorX = anchorX,
+            anchorY = anchorY,
             groundY = groundY,
-            penetration = penetration,
-            targetBodyY = targetBodyY,
-            isCloseEnough = isCloseEnough,
+            distanceToGround = distanceToGround,
+            compression = compression,
+            compressionVelocity = compressionVelocity,
+            hardPenetration = hardPenetration,
+            isContacting = isContacting,
         )
     }
     private fun resolveWheelGroundContact(dt: Float) {
-        val rear = sampleWheel(rearWheel)
-        val front = sampleWheel(frontWheel)
+        val rear = sampleWheel(rearWheel, dt)
+        val front = sampleWheel(frontWheel, dt)
 
-        val rearTouches =
-            rear.penetration >= 0f || (rear.isCloseEnough && velocityY >= 0f)
+        isGrounded = rear.isContacting || front.isContacting
 
-        val frontTouches =
-            front.penetration >= 0f || (front.isCloseEnough && velocityY >= 0f)
-
-        val groundedCandidate = rearTouches || frontTouches
-
-        if (!groundedCandidate) {
-            isGrounded = false
-
-            // 공중에서는 지형 각도를 따라가지 않는다.
+        if (!isGrounded) {
             angleRadians += angularVelocity * dt
-            angularVelocity *= 0.98f
+            angularVelocity *= AIR_ANGULAR_DAMPING
             return
         }
 
-        isGrounded = true
+        applySuspensionForce(rear, dt)
+        applySuspensionForce(front, dt)
 
-        // 핵심:
-        // 목표 각도는 현재 회전된 바퀴 centerX 기준이 아니라,
-        // 차체 기준 앞/뒤 바퀴가 밟아야 할 지형 위치 기준으로 잡는다.
+        // 너무 깊게 박히는 경우만 강제 보정.
+        // 일반적인 접지는 spring force로 처리한다.
+        val maxHardPenetration = max(rear.hardPenetration, front.hardPenetration)
+        if (maxHardPenetration > 0f) {
+            y -= maxHardPenetration
+
+            if (velocityY > 0f) {
+                velocityY = 0f
+            }
+        }
+
         val rearProbeX = worldX - WHEEL_HALF_DISTANCE
         val frontProbeX = worldX + WHEEL_HALF_DISTANCE
 
@@ -185,34 +235,34 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
             frontProbeX - rearProbeX,
         )
 
-        angleRadians = lerpAngle(
-            angleRadians,
-            targetAngle,
-            (ANGLE_FOLLOW_SPEED * dt).coerceAtMost(1f),
-        )
+        // 순수 서스펜션만 두면 초반 튜닝이 까다로워서,
+        // 약한 보조 토크만 넣는다.
+        // 나중에 완전 물리식으로 가고 싶으면 이 줄을 줄이거나 제거하면 된다.
+        angularVelocity += angleDiff(angleRadians, targetAngle) * ANGLE_ASSIST * dt
 
-        // 각도를 갱신했으니, 그 각도 기준으로 차체 y를 다시 계산한다.
-        val cosA = kotlin.math.cos(angleRadians)
-        val sinA = kotlin.math.sin(angleRadians)
-
-        val rearOffsetY = rearWheel.localX * sinA + rearWheel.localY * cosA
-        val frontOffsetY = frontWheel.localX * sinA + frontWheel.localY * cosA
-
-        val rearTargetBodyY = rearGroundY - rearOffsetY - rearWheel.radius
-        val frontTargetBodyY = frontGroundY - frontOffsetY - frontWheel.radius
-
-        // 같은 선분 위라면 둘은 거의 같은 값이 된다.
-        // 지형 꺾임 근처에서는 차체가 지형을 파고들지 않게 더 위쪽 값을 선택한다.
-        y = minOf(rearTargetBodyY, frontTargetBodyY)
-
-        if (velocityY > 0f) {
-            velocityY = 0f
-        }
+        angleRadians += angularVelocity * dt
+        angularVelocity *= GROUND_ANGULAR_DAMPING
 
         velocityX += sin(targetAngle) * SLOPE_ACCEL * dt
         velocityX = velocityX.coerceIn(0f, MAX_SPEED)
+    }
 
-        angularVelocity *= 0.85f
+    private fun applySuspensionForce(sample: WheelSample, dt: Float) {
+        if (!sample.isContacting) return
+
+        val springAccel =
+            sample.compression * SUSPENSION_STIFFNESS +
+                    sample.compressionVelocity * SUSPENSION_DAMPING
+
+        if (springAccel <= 0f) return
+
+        // y축은 아래가 + 이므로, 위로 미는 힘은 velocityY를 감소시킨다.
+        velocityY -= springAccel * dt
+
+        // 뒤쪽 바퀴가 강하게 눌리면 차 앞이 내려가야 하고,
+        // 앞쪽 바퀴가 강하게 눌리면 차 앞이 올라가야 한다.
+        val normalizedX = sample.wheel.localX / WHEEL_HALF_DISTANCE
+        angularVelocity += -springAccel * normalizedX * SUSPENSION_TORQUE_SCALE * dt
     }
 
     override fun draw(canvas: Canvas) {
@@ -232,14 +282,14 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
             drawCircle(
                 screenX + rearWheel.localX,
-                screenY + rearWheel.localY,
+                screenY + rearWheel.anchorLocalY + rearWheel.suspensionLength,
                 rearWheel.radius,
                 wheelPaint,
             )
 
             drawCircle(
                 screenX + frontWheel.localX,
-                screenY + frontWheel.localY,
+                screenY + frontWheel.anchorLocalY + frontWheel.suspensionLength,
                 frontWheel.radius,
                 wheelPaint,
             )
@@ -258,30 +308,69 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         return from + diff * t
     }
+
+    private fun angleDiff(from: Float, to: Float): Float {
+        var diff = to - from
+
+        while (diff > Math.PI.toFloat()) {
+            diff -= (Math.PI * 2.0).toFloat()
+        }
+
+        while (diff < -Math.PI.toFloat()) {
+            diff += (Math.PI * 2.0).toFloat()
+        }
+
+        return diff
+    }
+
     companion object {
+        // frame
         private const val MAX_DT = 1f / 20f
 
-        private const val ENGINE_ACCEL = 620f
-        private const val BRAKE_ACCEL = 520f
-        private const val MAX_SPEED = 1100f
+        // horizontal movement
+        private const val ENGINE_ACCEL = 1500f
+        private const val BRAKE_ACCEL = 1100f
+        private const val MAX_SPEED = 1800f
 
+        private const val DRIVE_FRICTION = 0.997f
+        private const val BRAKE_FRICTION = 0.985f
+        private const val GROUND_FRICTION = 0.992f
+        private const val AIR_FRICTION = 0.999f
+
+        // vertical movement
         private const val GRAVITY = 1800f
         private const val MAX_FALL_SPEED = 2300f
 
-        private const val GROUND_FRICTION = 0.985f
-        private const val AIR_FRICTION = 0.995f
-
+        // fuel
         private const val FUEL_CONSUMPTION = 9f
 
+        // wheel
         private const val WHEEL_HALF_DISTANCE = 58f
         private const val WHEEL_RADIUS = 26f
-        private const val WHEEL_CENTER_OFFSET_Y = 42f
 
-        private const val GROUND_SNAP_DISTANCE = 8f
+        // 기존 바퀴 중심 y가 42였으므로
+        // anchor 18 + rest 24 = 42 정도로 맞춘다.
+        private const val WHEEL_ANCHOR_OFFSET_Y = 18f
 
+        // suspension
+        private const val SUSPENSION_REST_LENGTH = 24f
+        private const val SUSPENSION_MIN_LENGTH = 14f
+        private const val SUSPENSION_MAX_LENGTH = 30f
+
+        private const val SUSPENSION_STIFFNESS = 320f
+        private const val SUSPENSION_DAMPING = 16f
+        private const val SUSPENSION_TORQUE_SCALE = 0.010f
+        private const val SUSPENSION_VISUAL_FOLLOW_SPEED = 40f
+
+        // rotation
+        private const val GROUND_ANGULAR_DAMPING = 0.90f
+        private const val ANGLE_ASSIST = 6.0f
+        private const val AIR_ANGULAR_DAMPING = 0.985f
+
+        // terrain influence
         private const val SLOPE_ACCEL = 620f
-        private const val ANGLE_FOLLOW_SPEED = 10f
 
+        // game over
         private const val FLIP_DEAD_ANGLE = 115f
     }
 }
