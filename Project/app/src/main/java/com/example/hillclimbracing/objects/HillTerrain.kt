@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.random.Random
 
@@ -22,9 +23,7 @@ class HillTerrain(
     private val points = ArrayList<TerrainPoint>()
     private val path = Path()
 
-    //private val random = Random(SEED)
     private val random = Random(Random.nextInt())
-
     private var previousDeltaY = 0f
 
     private val fillPaint = Paint().apply {
@@ -57,6 +56,11 @@ class HillTerrain(
 
         ensurePointsUntil(endX + SEGMENT_WIDTH)
 
+        drawTerrainFill(canvas, startX, endX)
+        drawTerrainLine(canvas, startX, endX)
+    }
+
+    private fun drawTerrainFill(canvas: Canvas, startX: Float, endX: Float) {
         path.reset()
 
         path.moveTo(startX - cameraX, getGroundY(startX))
@@ -73,12 +77,14 @@ class HillTerrain(
         path.close()
 
         canvas.drawPath(path, fillPaint)
+    }
 
+    private fun drawTerrainLine(canvas: Canvas, startX: Float, endX: Float) {
         path.reset()
 
         path.moveTo(startX - cameraX, getGroundY(startX))
 
-        x = startX + DRAW_SAMPLE_STEP
+        var x = startX + DRAW_SAMPLE_STEP
         while (x <= endX) {
             path.lineTo(x - cameraX, getGroundY(x))
             x += DRAW_SAMPLE_STEP
@@ -113,9 +119,6 @@ class HillTerrain(
         val dy = p1.y - p0.y
 
         val t = ((worldX - p0.x) / dx).coerceIn(0f, 1f)
-
-        // y = y0 + dy * smoothStep(t)
-        // dy/dx = dy * smoothStep'(t) / dx
         val slope = dy * smoothStepDerivative(t) / dx
 
         return atan2(slope, 1f)
@@ -143,13 +146,27 @@ class HillTerrain(
         val rawDelta = random.nextFloat() * 2f - 1f
         val targetDeltaY = rawDelta * MAX_DELTA_Y
 
-        // 이전 변화량과 섞어서 급격한 꺾임을 줄인다.
-        val deltaY = previousDeltaY * 0.55f + targetDeltaY * 0.45f
+        var deltaY = previousDeltaY * DELTA_MOMENTUM + targetDeltaY * (1f - DELTA_MOMENTUM)
+
+        if (abs(previousDeltaY) > MAX_DELTA_Y * 0.65f && abs(deltaY) > abs(previousDeltaY)) {
+            deltaY *= 0.75f
+        }
+
+        deltaY = deltaY.coerceIn(-MAX_DELTA_Y, MAX_DELTA_Y)
+
+        var nextY = last.y + deltaY
+
+        if (nextY < MIN_Y) {
+            nextY = MIN_Y
+            deltaY = abs(deltaY) * EDGE_BOUNCE
+        } else if (nextY > MAX_Y) {
+            nextY = MAX_Y
+            deltaY = -abs(deltaY) * EDGE_BOUNCE
+        }
+
         previousDeltaY = deltaY
 
         val nextX = last.x + SEGMENT_WIDTH
-        val nextY = (last.y + deltaY).coerceIn(MIN_Y, MAX_Y)
-
         points.add(TerrainPoint(nextX, nextY))
     }
 
@@ -167,16 +184,7 @@ class HillTerrain(
         return points.lastIndex - 1
     }
 
-    private fun findVisibleStartIndex(startX: Float): Int {
-        var i = 0
-        while (i < points.lastIndex && points[i + 1].x < startX) {
-            i++
-        }
-        return i
-    }
-
     private fun removeOldPoints(removeBeforeX: Float) {
-        // getGroundY가 현재 화면 조금 뒤쪽도 참조할 수 있으므로 최소 2개는 남긴다.
         while (points.size > 3 && points[1].x < removeBeforeX) {
             points.removeAt(0)
         }
@@ -191,17 +199,20 @@ class HillTerrain(
     }
 
     companion object {
-        private const val SEED = 20260507
-
         private const val START_Y = 1050f
 
-        private const val SEGMENT_WIDTH = 220f
-        private const val LOOKAHEAD_DISTANCE = 1200f
+        private const val SEGMENT_WIDTH = 200f
+        private const val MAX_DELTA_Y = 124f
+        private const val DELTA_MOMENTUM = 0.43f
+
+        private const val LOOKAHEAD_DISTANCE = 1400f
         private const val REMOVE_BACK_DISTANCE = 800f
 
-        private const val MIN_Y = 850f
-        private const val MAX_Y = 1180f
-        private const val MAX_DELTA_Y = 85f
-        private const val DRAW_SAMPLE_STEP = 12f
+        private const val MIN_Y = 760f
+        private const val MAX_Y = 1240f
+
+        private const val EDGE_BOUNCE = 0.62f
+
+        private const val DRAW_SAMPLE_STEP = 10f
     }
 }

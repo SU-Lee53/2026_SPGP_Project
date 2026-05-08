@@ -34,9 +34,33 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
     private var angularVelocity = 0f
 
-    fun addFuel(amount: Float) {
-        fuel = (fuel + amount).coerceAtMost(MAX_FUEL)
+    private enum class BodySampleType {
+        BOTTOM,
+        FRONT,
+        REAR,
+        ROOF,
     }
+
+    private data class BodySample(
+        val localX: Float,
+        val localY: Float,
+        val type: BodySampleType,
+    )
+    private val bodySamples = arrayOf(
+        BodySample(-55f, 30f, BodySampleType.BOTTOM),
+        BodySample(0f, 34f, BodySampleType.BOTTOM),
+        BodySample(55f, 30f, BodySampleType.BOTTOM),
+
+        BodySample(80f, -8f, BodySampleType.FRONT),
+        BodySample(82f, 18f, BodySampleType.FRONT),
+
+        BodySample(-80f, -8f, BodySampleType.REAR),
+        BodySample(-82f, 18f, BodySampleType.REAR),
+
+        BodySample(-60f, -46f, BodySampleType.ROOF),
+        BodySample(0f, -52f, BodySampleType.ROOF),
+        BodySample(60f, -46f, BodySampleType.ROOF),
+    )
 
     private class Wheel(
         val localX: Float,
@@ -96,6 +120,10 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         return out
     }
 
+    fun addFuel(amount: Float) {
+        fuel = (fuel + amount).coerceAtMost(MAX_FUEL)
+    }
+
     override fun update(gctx: GameContext) {
         if (isDead) return
 
@@ -105,6 +133,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         updateHorizontalMovement(dt)
         updateVerticalMovement(dt)
         resolveWheelGroundContact(dt)
+        resolveBodyTerrainCollision()
 
         distance = worldX / 10f
 
@@ -114,8 +143,98 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         }
 
         val angleDegrees = Math.toDegrees(angleRadians.toDouble()).toFloat()
-        if (kotlin.math.abs(angleDegrees) > FLIP_DEAD_ANGLE) {
+        if (isGrounded && abs(angleDegrees) > FLIP_DEAD_ANGLE) {
             isDead = true
+        }
+    }
+
+    private fun resolveBodyTerrainCollision() {
+        var maxBottomPenetration = 0f
+        var frontHit = false
+        var rearHit = false
+
+        for (sample in bodySamples) {
+            val px = localToWorldX(sample.localX, sample.localY)
+            val py = localToWorldY(sample.localX, sample.localY)
+            val groundY = terrain.getGroundY(px)
+
+            // y축은 아래가 +.
+            // py가 groundY보다 크면 지형 아래로 들어간 것.
+            val penetration = py - groundY
+
+            if (penetration <= BODY_COLLISION_MARGIN) {
+                continue
+            }
+
+            when (sample.type) {
+                BodySampleType.ROOF -> {
+                    // 지붕은 바로 죽이면 됨.
+                    isDead = true
+                    return
+                }
+
+                BodySampleType.FRONT -> {
+                    frontHit = true
+                    maxBottomPenetration = max(maxBottomPenetration, penetration)
+                }
+
+                BodySampleType.REAR -> {
+                    rearHit = true
+                    maxBottomPenetration = max(maxBottomPenetration, penetration)
+                }
+
+                BodySampleType.BOTTOM -> {
+                    maxBottomPenetration = max(maxBottomPenetration, penetration)
+                }
+            }
+        }
+
+        if (maxBottomPenetration <= 0f) {
+            return
+        }
+
+        // 차체가 지형에 파묻힌 정도만큼 살짝 위로 빼낸다.
+        // 한 번에 전부 빼내면 튀어오르므로 일부만 보정한다.
+        val pushAmount = maxBottomPenetration * BODY_PUSH_OUT_RATIO
+
+        if (frontHit) {
+            // 앞부분이 오르막에 박힌 경우: 위로만 빼면 계속 낀다.
+            // 약간 뒤로 밀어내서 경사면에서 빠져나오게 한다.
+            worldX -= pushAmount * FRONT_HIT_BACK_PUSH
+            y -= pushAmount
+        } else if (rearHit) {
+            // 뒤쪽이 박힌 경우는 앞으로 약간 밀어낸다.
+            worldX += pushAmount * REAR_HIT_FORWARD_PUSH
+            y -= pushAmount
+        } else {
+            y -= pushAmount
+        }
+
+        // 급경사에 앞부분이 박혔으면 즉사 대신 강한 감속.
+        if (frontHit) {
+            velocityX *= FRONT_HIT_SPEED_REMAIN
+
+            if (velocityY > 0f) {
+                velocityY *= 0.25f
+            }
+
+            angularVelocity += FRONT_HIT_ANGULAR_IMPULSE
+        }
+
+        if (rearHit) {
+            velocityX *= REAR_HIT_SPEED_REMAIN
+            velocityY *= 0.55f
+
+            // 뒤가 박히면 반대쪽 회전.
+            angularVelocity -= REAR_HIT_ANGULAR_IMPULSE
+        }
+
+        // 바닥 긁힘은 속도만 약간 줄임.
+        if (!frontHit && !rearHit) {
+            velocityX *= BODY_SCRAPE_SPEED_REMAIN
+            if (velocityY > 0f) {
+                velocityY *= 0.25f
+            }
         }
     }
 
@@ -148,6 +267,21 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         y += velocityY * dt
     }
+
+    private fun bodyPointToWorldX(localX: Float, localY: Float): Float {
+        val cosA = cos(angleRadians)
+        val sinA = sin(angleRadians)
+
+        return worldX + localX * cosA - localY * sinA
+    }
+
+    private fun bodyPointToWorldY(localX: Float, localY: Float): Float {
+        val cosA = cos(angleRadians)
+        val sinA = sin(angleRadians)
+
+        return y + localX * sinA + localY * cosA
+    }
+
     private fun sampleWheel(wheel: Wheel, dt: Float): WheelSample {
         val cosA = cos(angleRadians)
         val sinA = sin(angleRadians)
@@ -163,7 +297,8 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         // 이 값이 suspensionLength가 되면 바퀴 바닥이 지면에 닿는다.
         val distanceToGround = groundY - anchorY - wheel.radius
 
-        val isContacting = distanceToGround <= SUSPENSION_MAX_LENGTH
+        val isContacting = distanceToGround <= SUSPENSION_MAX_LENGTH &&
+                distanceToGround >= -MAX_WHEEL_PENETRATION
 
         val targetSuspensionLength = if (isContacting) {
             distanceToGround.coerceIn(SUSPENSION_MIN_LENGTH, SUSPENSION_MAX_LENGTH)
@@ -212,6 +347,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
             isContacting = isContacting,
         )
     }
+
     private fun resolveWheelGroundContact(dt: Float) {
         val rear = sampleWheel(rearWheel, dt)
         val front = sampleWheel(frontWheel, dt)
@@ -219,7 +355,13 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         isGrounded = rear.isContacting || front.isContacting
 
         if (!isGrounded) {
+            applyAirRotationControl(dt)
+
             angleRadians += angularVelocity * dt
+            angularVelocity = angularVelocity.coerceIn(
+                -MAX_AIR_ANGULAR_VELOCITY,
+                MAX_AIR_ANGULAR_VELOCITY,
+            )
             angularVelocity *= AIR_ANGULAR_DAMPING
             return
         }
@@ -257,7 +399,38 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         angleRadians += angularVelocity * dt
         angularVelocity *= GROUND_ANGULAR_DAMPING
 
-        velocityX += sin(targetAngle) * SLOPE_ACCEL * dt
+        applySlopeForce(targetAngle, dt)
+    }
+
+    private fun applyAirRotationControl(dt: Float) {
+        if (isAccelerating && fuel > 0f) {
+            // 가속: 뒷바퀴를 들어 올리는 방향
+            angularVelocity += AIR_ROTATION_ACCEL * dt
+        }
+
+        if (isBraking) {
+            // 브레이크: 뒷바퀴를 내리는 방향
+            angularVelocity -= AIR_ROTATION_ACCEL * dt
+        }
+
+        // 공중에서 아무 입력도 없으면 천천히 회전이 줄어들게 한다.
+        if (!isAccelerating && !isBraking) {
+            angularVelocity *= AIR_NEUTRAL_DAMPING
+        }
+    }
+
+    private fun applySlopeForce(targetAngle: Float, dt: Float) {
+        val slope = sin(targetAngle)
+
+        val slopeAccel = if (slope < 0f) {
+            // 오르막: 더 강하게 감속
+            slope * UPHILL_RESIST_ACCEL
+        } else {
+            // 내리막: 너무 폭주하지 않게 약하게 가속
+            slope * DOWNHILL_ACCEL
+        }
+
+        velocityX += slopeAccel * dt
         velocityX = velocityX.coerceIn(0f, MAX_SPEED)
     }
 
@@ -286,10 +459,10 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         canvas.withRotation(angleDegrees, screenX, screenY) {
             bodyRect.set(
-                screenX - 90f,
-                screenY - 45f,
-                screenX + 90f,
-                screenY + 30f,
+                screenX - 88f,
+                screenY - 50f,
+                screenX + 88f,
+                screenY + 24f,
             )
 
             drawRoundRect(bodyRect, 20f, 20f, bodyPaint)
@@ -310,6 +483,17 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         }
     }
 
+    private fun localToWorldX(localX: Float, localY: Float): Float {
+        val cosA = cos(angleRadians)
+        val sinA = sin(angleRadians)
+        return worldX + localX * cosA - localY * sinA
+    }
+
+    private fun localToWorldY(localX: Float, localY: Float): Float {
+        val cosA = cos(angleRadians)
+        val sinA = sin(angleRadians)
+        return y + localX * sinA + localY * cosA
+    }
     private fun lerp(from: Float, to: Float, t: Float): Float {
         return from + (to - from) * t
     }
@@ -342,14 +526,14 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         private const val MAX_DT = 1f / 20f
 
         // horizontal movement
-        private const val ENGINE_ACCEL = 1500f
-        private const val BRAKE_ACCEL = 1100f
-        private const val MAX_SPEED = 1800f
+        private const val ENGINE_ACCEL = 900f
+        private const val BRAKE_ACCEL = 850f
+        private const val MAX_SPEED = 1000f
 
-        private const val DRIVE_FRICTION = 0.997f
-        private const val BRAKE_FRICTION = 0.985f
-        private const val GROUND_FRICTION = 0.992f
-        private const val AIR_FRICTION = 0.999f
+        private const val DRIVE_FRICTION = 0.995f
+        private const val BRAKE_FRICTION = 0.982f
+        private const val GROUND_FRICTION = 0.988f
+        private const val AIR_FRICTION = 0.997f
 
         // vertical movement
         private const val GRAVITY = 1800f
@@ -360,17 +544,15 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         private const val FUEL_CONSUMPTION = 9f
 
         // wheel
-        private const val WHEEL_HALF_DISTANCE = 58f
-        private const val WHEEL_RADIUS = 26f
+        private const val MAX_WHEEL_PENETRATION = 35f
+        private const val WHEEL_HALF_DISTANCE = 72f
+        private const val WHEEL_RADIUS = 34f
 
-        // 기존 바퀴 중심 y가 42였으므로
-        // anchor 18 + rest 24 = 42 정도로 맞춘다.
-        private const val WHEEL_ANCHOR_OFFSET_Y = 18f
+        private const val WHEEL_ANCHOR_OFFSET_Y = 16f
 
-        // suspension
         private const val SUSPENSION_REST_LENGTH = 24f
-        private const val SUSPENSION_MIN_LENGTH = 14f
-        private const val SUSPENSION_MAX_LENGTH = 30f
+        private const val SUSPENSION_MIN_LENGTH = 12f
+        private const val SUSPENSION_MAX_LENGTH = 34f
 
         private const val SUSPENSION_STIFFNESS = 320f
         private const val SUSPENSION_DAMPING = 16f
@@ -383,10 +565,28 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         private const val AIR_ANGULAR_DAMPING = 0.985f
 
         // terrain influence
-        private const val SLOPE_ACCEL = 620f
+        private const val UPHILL_RESIST_ACCEL = 1250f
+        private const val DOWNHILL_ACCEL = 420f
 
         // game over
-        private const val FLIP_DEAD_ANGLE = 115f
+        private const val FLIP_DEAD_ANGLE = 100f
 
+        // air control
+        private const val AIR_ROTATION_ACCEL = 11.0f
+        private const val MAX_AIR_ANGULAR_VELOCITY = 7.0f
+        private const val AIR_NEUTRAL_DAMPING = 0.985f
+
+        // Body
+        private const val BODY_COLLISION_MARGIN = 5f
+
+        private const val FRONT_HIT_SPEED_REMAIN = 0.68f
+        private const val REAR_HIT_SPEED_REMAIN = 0.60f
+        private const val BODY_SCRAPE_SPEED_REMAIN = 0.82f
+
+        private const val FRONT_HIT_ANGULAR_IMPULSE = 0.9f
+        private const val REAR_HIT_ANGULAR_IMPULSE = 0.8f
+        private const val BODY_PUSH_OUT_RATIO = 0.85f
+        private const val FRONT_HIT_BACK_PUSH = 0.45f
+        private const val REAR_HIT_FORWARD_PUSH = 0.25f
     }
 }
