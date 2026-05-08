@@ -11,6 +11,7 @@ import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 import com.example.hillclimbracing.objects.GameHud
 import com.example.hillclimbracing.objects.HillTerrain
 import com.example.hillclimbracing.objects.TouchDriveInput
+import com.example.hillclimbracing.objects.FuelItemManager
 
 class GameScene(
     gctx: GameContext,
@@ -29,6 +30,7 @@ class GameScene(
     private val terrain = HillTerrain(gctx)
     private val player = Player(gctx, terrain)
     private val hud = GameHud(player)
+    private val fuelItemManager = FuelItemManager(terrain, player)
 
     var cameraX = 0f
         private set
@@ -37,6 +39,7 @@ class GameScene(
         world.add(terrain, Layer.TERRAIN)
         world.add(player, Layer.PLAYER)
         world.add(hud, Layer.UI)
+        world.add(fuelItemManager, Layer.ITEM)
     }
 
     override fun update(gctx: GameContext) {
@@ -46,6 +49,7 @@ class GameScene(
 
         terrain.cameraX = cameraX
         player.cameraX = cameraX
+        fuelItemManager.cameraX = cameraX
 
         if (player.isDead) {
             GameOverScene(gctx, player.distance.toInt()).change()

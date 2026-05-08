@@ -34,6 +34,10 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
     private var angularVelocity = 0f
 
+    fun addFuel(amount: Float) {
+        fuel = (fuel + amount).coerceAtMost(MAX_FUEL)
+    }
+
     private class Wheel(
         val localX: Float,
         val anchorLocalY: Float,
@@ -80,6 +84,16 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
     private val wheelPaint = Paint().apply {
         color = Color.BLACK
         isAntiAlias = true
+    }
+
+    fun getCollisionRect(out: RectF): RectF {
+        out.set(
+            worldX - 90f,
+            y - 50f,
+            worldX + 90f,
+            y + 55f,
+        )
+        return out
     }
 
     override fun update(gctx: GameContext) {
@@ -342,6 +356,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         private const val MAX_FALL_SPEED = 2300f
 
         // fuel
+        private const val MAX_FUEL = 100f
         private const val FUEL_CONSUMPTION = 9f
 
         // wheel
@@ -372,5 +387,6 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         // game over
         private const val FLIP_DEAD_ANGLE = 115f
+
     }
 }
