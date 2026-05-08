@@ -51,37 +51,39 @@ class HillTerrain(
     override fun draw(canvas: Canvas) {
         if (points.size < 2) return
 
-        val startIndex = findVisibleStartIndex(cameraX - SEGMENT_WIDTH)
+        val startX = cameraX - SEGMENT_WIDTH
         val endX = cameraX + gctx.metrics.width + SEGMENT_WIDTH
+
+        ensurePointsUntil(endX + SEGMENT_WIDTH)
 
         path.reset()
 
-        val first = points[startIndex]
-        path.moveTo(first.x - cameraX, first.y)
+        path.moveTo(startX - cameraX, getGroundY(startX))
 
-        var i = startIndex + 1
-        while (i < points.size && points[i].x <= endX) {
-            val p = points[i]
-            path.lineTo(p.x - cameraX, p.y)
-            i++
+        var x = startX + DRAW_SAMPLE_STEP
+        while (x <= endX) {
+            path.lineTo(x - cameraX, getGroundY(x))
+            x += DRAW_SAMPLE_STEP
         }
 
-        val last = points[(i - 1).coerceAtLeast(startIndex)]
-        path.lineTo(last.x - cameraX, gctx.metrics.height)
-        path.lineTo(first.x - cameraX, gctx.metrics.height)
+        path.lineTo(endX - cameraX, getGroundY(endX))
+        path.lineTo(endX - cameraX, gctx.metrics.height)
+        path.lineTo(startX - cameraX, gctx.metrics.height)
         path.close()
 
         canvas.drawPath(path, fillPaint)
 
         path.reset()
-        path.moveTo(first.x - cameraX, first.y)
 
-        i = startIndex + 1
-        while (i < points.size && points[i].x <= endX) {
-            val p = points[i]
-            path.lineTo(p.x - cameraX, p.y)
-            i++
+        path.moveTo(startX - cameraX, getGroundY(startX))
+
+        x = startX + DRAW_SAMPLE_STEP
+        while (x <= endX) {
+            path.lineTo(x - cameraX, getGroundY(x))
+            x += DRAW_SAMPLE_STEP
         }
+
+        path.lineTo(endX - cameraX, getGroundY(endX))
 
         canvas.drawPath(path, linePaint)
     }
@@ -94,7 +96,9 @@ class HillTerrain(
         val p1 = points[index + 1]
 
         val t = ((worldX - p0.x) / (p1.x - p0.x)).coerceIn(0f, 1f)
-        return p0.y + (p1.y - p0.y) * t
+        val s = smoothStep(t)
+
+        return p0.y + (p1.y - p0.y) * s
     }
 
     fun getSlopeAngle(worldX: Float): Float {
@@ -104,10 +108,16 @@ class HillTerrain(
         val p0 = points[index]
         val p1 = points[index + 1]
 
-        return atan2(
-            p1.y - p0.y,
-            p1.x - p0.x,
-        )
+        val dx = p1.x - p0.x
+        val dy = p1.y - p0.y
+
+        val t = ((worldX - p0.x) / dx).coerceIn(0f, 1f)
+
+        // y = y0 + dy * smoothStep(t)
+        // dy/dx = dy * smoothStep'(t) / dx
+        val slope = dy * smoothStepDerivative(t) / dx
+
+        return atan2(slope, 1f)
     }
 
     private fun initializeTerrain() {
@@ -171,6 +181,14 @@ class HillTerrain(
         }
     }
 
+    private fun smoothStep(t: Float): Float {
+        return t * t * (3f - 2f * t)
+    }
+
+    private fun smoothStepDerivative(t: Float): Float {
+        return 6f * t * (1f - t)
+    }
+
     companion object {
         private const val SEED = 20260507
 
@@ -183,5 +201,6 @@ class HillTerrain(
         private const val MIN_Y = 850f
         private const val MAX_Y = 1180f
         private const val MAX_DELTA_Y = 85f
+        private const val DRAW_SAMPLE_STEP = 12f
     }
 }
