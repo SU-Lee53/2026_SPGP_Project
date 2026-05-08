@@ -22,7 +22,8 @@ class HillTerrain(
     private val points = ArrayList<TerrainPoint>()
     private val path = Path()
 
-    private val random = Random(SEED)
+    //private val random = Random(SEED)
+    private val random = Random(Random.nextInt())
 
     private var previousDeltaY = 0f
 

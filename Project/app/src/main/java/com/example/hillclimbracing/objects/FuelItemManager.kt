@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.RectF
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
+import kotlin.random.Random
 
 class FuelItemManager(
     private val terrain: HillTerrain,
@@ -16,7 +17,9 @@ class FuelItemManager(
     private val playerRect = RectF()
     private val itemRect = RectF()
 
+    private val random = Random(Random.nextInt())
     private var nextSpawnX = 700f
+
 
     override fun update(gctx: GameContext) {
         spawnItemsAhead()
@@ -34,17 +37,59 @@ class FuelItemManager(
         val requiredX = player.worldX + SPAWN_LOOKAHEAD_DISTANCE
 
         while (nextSpawnX < requiredX) {
-            val groundY = terrain.getGroundY(nextSpawnX)
+            if (shouldSpawnFuel()) {
+                val groundY = terrain.getGroundY(nextSpawnX)
 
-            items.add(
-                FuelItem(
-                    worldX = nextSpawnX,
-                    y = groundY - ITEM_HEIGHT_FROM_GROUND,
+                val heightOffset = random.nextFloat() *
+                        (ITEM_MAX_HEIGHT_FROM_GROUND - ITEM_MIN_HEIGHT_FROM_GROUND) +
+                        ITEM_MIN_HEIGHT_FROM_GROUND
+
+                items.add(
+                    FuelItem(
+                        worldX = nextSpawnX,
+                        y = groundY - heightOffset,
+                    )
                 )
-            )
+            }
 
-            nextSpawnX += SPAWN_INTERVAL
+            nextSpawnX += getNextSpawnInterval()
         }
+    }
+
+    private fun shouldSpawnFuel(): Boolean {
+        // 연료가 많을수록 덜 나오고, 연료가 적으면 조금 더 잘 나오게 한다.
+        val spawnChance = when {
+            player.fuel > 70f -> 0.55f
+            player.fuel > 40f -> 0.70f
+            else -> 0.90f
+        }
+
+        return random.nextFloat() < spawnChance
+    }
+
+    private fun getNextSpawnInterval(): Float {
+        val minInterval: Float
+        val maxInterval: Float
+
+        when {
+            player.fuel > 70f -> {
+                minInterval = 2200f
+                maxInterval = 3200f
+            }
+
+            player.fuel > 40f -> {
+                minInterval = 1600f
+                maxInterval = 2600f
+            }
+
+            else -> {
+                // 너무 죽기 직전이면 완전 랜덤으로 방치하지 않고 약간 구제.
+                minInterval = 1000f
+                maxInterval = 1700f
+            }
+        }
+
+        return random.nextFloat() * (maxInterval - minInterval) + minInterval
     }
 
     private fun checkCollision() {
@@ -76,9 +121,12 @@ class FuelItemManager(
     }
 
     companion object {
-        private const val SPAWN_INTERVAL = 900f
-        private const val SPAWN_LOOKAHEAD_DISTANCE = 1800f
+        private const val SEED = 20260509
+
+        private const val SPAWN_LOOKAHEAD_DISTANCE = 2200f
         private const val REMOVE_BACK_DISTANCE = 800f
-        private const val ITEM_HEIGHT_FROM_GROUND = 90f
+
+        private const val ITEM_MIN_HEIGHT_FROM_GROUND = 75f
+        private const val ITEM_MAX_HEIGHT_FROM_GROUND = 125f
     }
 }
