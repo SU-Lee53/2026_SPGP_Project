@@ -75,8 +75,7 @@ flowchart LR
 
 | Player | HillTerrain | FuelItem / FuelItemManager | GameHud |
 | --- | --- | --- | --- |
-| 플레이어 차량 | 랜덤 지형 | 아이템
-아이템 생성/충돌 관리 | 거리, 연료 등의 상태 표시 |
+| 플레이어 차량 | 랜덤 지형 | 아이템 / 아이템 생성 및 충돌 관리 | 거리, 연료 등의 상태 표시 |
 
 ### Player
 
