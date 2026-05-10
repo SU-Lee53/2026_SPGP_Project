@@ -28,7 +28,7 @@
     - [ ]  간단한 서스펜션 효과 → 90% (약간 버그 존재)
 
 ## Commit 진행 내역
-- <img src="Images/github_insight_pulse.png" width="25%">
+- <img src="Images/github_insight_pulse.png" width="100%">
 
 | 주차 | Commits |
 | --- | --- |
