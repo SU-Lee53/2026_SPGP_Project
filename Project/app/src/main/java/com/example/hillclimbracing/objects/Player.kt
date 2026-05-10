@@ -1,9 +1,5 @@
 package com.example.hillclimbracing.objects
 
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.RectF
 import androidx.core.graphics.withRotation
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
@@ -12,6 +8,10 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.RectF
+import com.example.hillclimbracing.R
 
 class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject {
     var worldX = 220f
@@ -47,19 +47,19 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         val type: BodySampleType,
     )
     private val bodySamples = arrayOf(
-        BodySample(-55f, 30f, BodySampleType.BOTTOM),
-        BodySample(0f, 34f, BodySampleType.BOTTOM),
-        BodySample(55f, 30f, BodySampleType.BOTTOM),
+        BodySample(-75f, 42f, BodySampleType.BOTTOM),
+        BodySample(0f, 48f, BodySampleType.BOTTOM),
+        BodySample(75f, 42f, BodySampleType.BOTTOM),
 
-        BodySample(80f, -8f, BodySampleType.FRONT),
-        BodySample(82f, 18f, BodySampleType.FRONT),
+        BodySample(122f, -8f, BodySampleType.FRONT),
+        BodySample(126f, 24f, BodySampleType.FRONT),
 
-        BodySample(-80f, -8f, BodySampleType.REAR),
-        BodySample(-82f, 18f, BodySampleType.REAR),
+        BodySample(-122f, -8f, BodySampleType.REAR),
+        BodySample(-126f, 24f, BodySampleType.REAR),
 
-        BodySample(-60f, -46f, BodySampleType.ROOF),
-        BodySample(0f, -52f, BodySampleType.ROOF),
-        BodySample(60f, -46f, BodySampleType.ROOF),
+        BodySample(-85f, -62f, BodySampleType.ROOF),
+        BodySample(0f, -72f, BodySampleType.ROOF),
+        BodySample(85f, -62f, BodySampleType.ROOF),
     )
 
     private class Wheel(
@@ -100,15 +100,13 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
     private val bodyRect = RectF()
 
-    private val bodyPaint = Paint().apply {
-        color = Color.rgb(220, 60, 60)
-        isAntiAlias = true
-    }
+    private val bodyBitmap: Bitmap = gctx.res.getBitmap(R.mipmap.player_body)
+    private val wheelBitmap: Bitmap = gctx.res.getBitmap(R.mipmap.player_wheel)
 
-    private val wheelPaint = Paint().apply {
-        color = Color.BLACK
-        isAntiAlias = true
-    }
+    private val bodyDstRect = RectF()
+    private val wheelDstRect = RectF()
+
+    private var wheelRotationDegrees = 0f
 
     fun getCollisionRect(out: RectF): RectF {
         out.set(
@@ -134,6 +132,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         updateVerticalMovement(dt)
         resolveWheelGroundContact(dt)
         resolveBodyTerrainCollision()
+        updateWheelRotation(dt)
 
         distance = worldX / 10f
 
@@ -458,29 +457,49 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         val angleDegrees = Math.toDegrees(angleRadians.toDouble()).toFloat()
 
         canvas.withRotation(angleDegrees, screenX, screenY) {
-            bodyRect.set(
-                screenX - 88f,
-                screenY - 50f,
-                screenX + 88f,
-                screenY + 24f,
-            )
+            drawBodySprite(screenX, screenY)
 
-            drawRoundRect(bodyRect, 20f, 20f, bodyPaint)
-
-            drawCircle(
+            drawWheelSprite(
                 screenX + rearWheel.localX,
-                screenY + rearWheel.anchorLocalY + rearWheel.suspensionLength,
-                rearWheel.radius,
-                wheelPaint,
+                screenY + rearWheel.anchorLocalY + rearWheel.suspensionLength + WHEEL_DRAW_OFFSET_Y,
             )
 
-            drawCircle(
+            drawWheelSprite(
                 screenX + frontWheel.localX,
-                screenY + frontWheel.anchorLocalY + frontWheel.suspensionLength,
-                frontWheel.radius,
-                wheelPaint,
+                screenY + frontWheel.anchorLocalY + frontWheel.suspensionLength + WHEEL_DRAW_OFFSET_Y,
             )
         }
+    }
+
+    private fun Canvas.drawBodySprite(screenX: Float, screenY: Float) {
+        bodyDstRect.set(
+            screenX - BODY_DRAW_WIDTH / 2f + BODY_DRAW_OFFSET_X,
+            screenY - BODY_DRAW_HEIGHT / 2f + BODY_DRAW_OFFSET_Y,
+            screenX + BODY_DRAW_WIDTH / 2f + BODY_DRAW_OFFSET_X,
+            screenY + BODY_DRAW_HEIGHT / 2f + BODY_DRAW_OFFSET_Y,
+        )
+
+        drawBitmap(bodyBitmap, null, bodyDstRect, null)
+    }
+
+    private fun Canvas.drawWheelSprite(centerX: Float, centerY: Float) {
+        withRotation(wheelRotationDegrees, centerX, centerY) {
+            wheelDstRect.set(
+                centerX - WHEEL_DRAW_RADIUS,
+                centerY - WHEEL_DRAW_RADIUS,
+                centerX + WHEEL_DRAW_RADIUS,
+                centerY + WHEEL_DRAW_RADIUS,
+            )
+
+            drawBitmap(wheelBitmap, null, wheelDstRect, null)
+        }
+    }
+
+    private fun updateWheelRotation(dt: Float) {
+        if (velocityX <= 0f) return
+
+        val radians = velocityX * dt / WHEEL_RADIUS
+        wheelRotationDegrees += Math.toDegrees(radians.toDouble()).toFloat()
     }
 
     private fun localToWorldX(localX: Float, localY: Float): Float {
@@ -545,8 +564,8 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         // wheel
         private const val MAX_WHEEL_PENETRATION = 35f
-        private const val WHEEL_HALF_DISTANCE = 72f
-        private const val WHEEL_RADIUS = 34f
+        private const val WHEEL_HALF_DISTANCE = 70f
+        private const val WHEEL_RADIUS = 40f
 
         private const val WHEEL_ANCHOR_OFFSET_Y = 16f
 
@@ -588,5 +607,12 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         private const val BODY_PUSH_OUT_RATIO = 0.85f
         private const val FRONT_HIT_BACK_PUSH = 0.45f
         private const val REAR_HIT_FORWARD_PUSH = 0.25f
+        private const val BODY_DRAW_WIDTH = 300f
+        private const val BODY_DRAW_HEIGHT = 180f
+        private const val BODY_DRAW_OFFSET_X = 3f
+        private const val BODY_DRAW_OFFSET_Y = -3f
+
+        private const val WHEEL_DRAW_RADIUS = 44f
+        private const val WHEEL_DRAW_OFFSET_Y = 5f
     }
 }

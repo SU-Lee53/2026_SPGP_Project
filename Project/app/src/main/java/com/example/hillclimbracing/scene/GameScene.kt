@@ -30,7 +30,7 @@ class GameScene(
     private val terrain = HillTerrain(gctx)
     private val player = Player(gctx, terrain)
     private val hud = GameHud(player)
-    private val fuelItemManager = FuelItemManager(terrain, player)
+    private val fuelItemManager = FuelItemManager(gctx, terrain, player)
 
     var cameraX = 0f
         private set

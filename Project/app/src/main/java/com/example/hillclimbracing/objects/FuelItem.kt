@@ -1,11 +1,13 @@
 package com.example.hillclimbracing.objects
 
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 
 class FuelItem(
+    private val bitmap: Bitmap,
     var worldX: Float,
     var y: Float,
 ) {
@@ -23,7 +25,7 @@ class FuelItem(
         isAntiAlias = true
     }
 
-    private val rect = RectF()
+    private val dstRect = RectF()
 
     fun getCollisionRect(out: RectF): RectF {
         out.set(
@@ -40,19 +42,18 @@ class FuelItem(
 
         val screenX = worldX - cameraX
 
-        rect.set(
+        dstRect.set(
             screenX - SIZE / 2f,
             y - SIZE / 2f,
             screenX + SIZE / 2f,
             y + SIZE / 2f,
         )
 
-        canvas.drawRoundRect(rect, 12f, 12f, paint)
-        canvas.drawRoundRect(rect, 12f, 12f, strokePaint)
+        canvas.drawBitmap(bitmap, null, dstRect, null)
     }
 
     companion object {
-        const val SIZE = 48f
+        const val SIZE = 100f
         const val FUEL_AMOUNT = 16f
     }
 }

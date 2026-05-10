@@ -5,8 +5,11 @@ import android.graphics.RectF
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 import kotlin.random.Random
+import android.graphics.Bitmap
+import com.example.hillclimbracing.R
 
 class FuelItemManager(
+    private val gctx: GameContext,
     private val terrain: HillTerrain,
     private val player: Player,
 ) : IGameObject {
@@ -20,6 +23,7 @@ class FuelItemManager(
     private val random = Random(Random.nextInt())
     private var nextSpawnX = 700f
 
+    private val fuelBitmap: Bitmap = gctx.res.getBitmap(R.mipmap.fuel_item)
 
     override fun update(gctx: GameContext) {
         spawnItemsAhead()
@@ -46,6 +50,7 @@ class FuelItemManager(
 
                 items.add(
                     FuelItem(
+                        bitmap = fuelBitmap,
                         worldX = nextSpawnX,
                         y = groundY - heightOffset,
                     )
