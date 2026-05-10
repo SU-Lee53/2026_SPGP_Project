@@ -73,8 +73,7 @@ flowchart LR
 ## GameObject 구성
 ### 요약
 
-| Player | HillTerrain | FuelItem
-FuelItemManager | GameHud |
+| Player | HillTerrain | FuelItem / FuelItemManager | GameHud |
 | --- | --- | --- | --- |
 | 플레이어 차량 | 랜덤 지형 | 아이템
 아이템 생성/충돌 관리 | 거리, 연료 등의 상태 표시 |
