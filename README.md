@@ -71,6 +71,13 @@ flowchart LR
     - 주행 거리와 최고 기록을 표시하고, 다시 시작 입력을 받으면 GameOverScene으로 전환
 
 ## GameObject 구성
+### 요약
+
+| Player | HillTerrain | FuelItem
+FuelItemManager | GameHud |
+| --- | --- | --- | --- |
+| 플레이어 차량 | 랜덤 지형 | 아이템
+아이템 생성/충돌 관리 | 거리, 연료 등의 상태 표시 |
 
 ### Player
 
