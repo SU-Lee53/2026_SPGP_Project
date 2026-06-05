@@ -142,17 +142,20 @@ class HillTerrain(
 
     private fun addNextPoint() {
         val last = points.last()
+        val difficulty = difficultyAt(last.x)
+        val maxDeltaY = MAX_DELTA_Y * difficulty
+        val momentum = (DELTA_MOMENTUM - (difficulty - 1f) * 0.10f).coerceAtLeast(0.30f)
 
         val rawDelta = random.nextFloat() * 2f - 1f
-        val targetDeltaY = rawDelta * MAX_DELTA_Y
+        val targetDeltaY = rawDelta * maxDeltaY
 
-        var deltaY = previousDeltaY * DELTA_MOMENTUM + targetDeltaY * (1f - DELTA_MOMENTUM)
+        var deltaY = previousDeltaY * momentum + targetDeltaY * (1f - momentum)
 
-        if (abs(previousDeltaY) > MAX_DELTA_Y * 0.65f && abs(deltaY) > abs(previousDeltaY)) {
+        if (abs(previousDeltaY) > maxDeltaY * 0.65f && abs(deltaY) > abs(previousDeltaY)) {
             deltaY *= 0.75f
         }
 
-        deltaY = deltaY.coerceIn(-MAX_DELTA_Y, MAX_DELTA_Y)
+        deltaY = deltaY.coerceIn(-maxDeltaY, maxDeltaY)
 
         var nextY = last.y + deltaY
 
@@ -168,6 +171,10 @@ class HillTerrain(
 
         val nextX = last.x + SEGMENT_WIDTH
         points.add(TerrainPoint(nextX, nextY))
+    }
+
+    private fun difficultyAt(worldX: Float): Float {
+        return (1f + worldX / DIFFICULTY_DISTANCE_SCALE).coerceAtMost(MAX_TERRAIN_DIFFICULTY)
     }
 
     private fun findSegmentIndex(worldX: Float): Int {
@@ -202,8 +209,10 @@ class HillTerrain(
         private const val START_Y = 1050f
 
         private const val SEGMENT_WIDTH = 200f
-        private const val MAX_DELTA_Y = 124f
+        private const val MAX_DELTA_Y = 112f
         private const val DELTA_MOMENTUM = 0.43f
+        private const val DIFFICULTY_DISTANCE_SCALE = 9000f
+        private const val MAX_TERRAIN_DIFFICULTY = 1.45f
 
         private const val LOOKAHEAD_DISTANCE = 1400f
         private const val REMOVE_BACK_DISTANCE = 800f

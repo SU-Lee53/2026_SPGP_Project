@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.view.MotionEvent
+import com.example.hillclimbracing.objects.GameProgress
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.Scene
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 
@@ -25,9 +26,13 @@ class TitleScene(
     }
 
     override fun draw(canvas: Canvas) {
+        val centerX = gctx.metrics.width / 2f
+        val bestDistance = GameProgress.getBestDistance(gctx.view.context)
+
         canvas.drawColor(Color.rgb(220, 240, 255))
-        canvas.drawText("Hill Climb Challenge", gctx.metrics.width / 2f, 650f, titlePaint)
-        canvas.drawText("Touch to Start", gctx.metrics.width / 2f, 760f, guidePaint)
+        canvas.drawText("Hill Climb Challenge", centerX, 650f, titlePaint)
+        canvas.drawText("Best Distance: ${bestDistance}m", centerX, 740f, guidePaint)
+        canvas.drawText("Touch to Start", centerX, 830f, guidePaint)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

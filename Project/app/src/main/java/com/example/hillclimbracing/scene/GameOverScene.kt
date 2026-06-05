@@ -10,6 +10,7 @@ import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 class GameOverScene(
     gctx: GameContext,
     private val distance: Int,
+    private val bestDistance: Int,
 ) : Scene(gctx) {
     private val titlePaint = Paint().apply {
         color = Color.BLACK
@@ -26,10 +27,13 @@ class GameOverScene(
     }
 
     override fun draw(canvas: Canvas) {
+        val centerX = gctx.metrics.width / 2f
+
         canvas.drawColor(Color.rgb(245, 245, 245))
-        canvas.drawText("Game Over", gctx.metrics.width / 2f, 600f, titlePaint)
-        canvas.drawText("Distance: ${distance}m", gctx.metrics.width / 2f, 700f, textPaint)
-        canvas.drawText("Touch to Retry", gctx.metrics.width / 2f, 820f, textPaint)
+        canvas.drawText("Game Over", centerX, 600f, titlePaint)
+        canvas.drawText("Distance: ${distance}m", centerX, 700f, textPaint)
+        canvas.drawText("Best Distance: ${bestDistance}m", centerX, 780f, textPaint)
+        canvas.drawText("Touch to Retry", centerX, 900f, textPaint)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {

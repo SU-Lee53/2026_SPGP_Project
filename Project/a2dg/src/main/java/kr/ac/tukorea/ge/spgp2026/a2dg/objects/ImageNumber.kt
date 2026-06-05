@@ -17,6 +17,7 @@ open class ImageNumber(
     private val right: Float,
     private val top: Float,
     private val dstCharWidth: Float,
+    private val minDigits: Int = 1,
 ) : IGameObject {
     // 다른 Sprite 류 객체들처럼 생성 시 GameContext 를 받아
     // 필요한 bitmap 을 현재 게임의 공통 리소스 캐시에서 가져온다.
@@ -63,6 +64,7 @@ open class ImageNumber(
         // 0 도 점수판에 보이게 하기 위해 적어도 한 자리 숫자는 그린다.
         var current = displayValue
         var x = right
+        var digitCount = 0
 
         do {
             // 숫자 이미지 시트는 0~9 가 가로로 같은 폭으로 붙어 있다고 가정한다.
@@ -80,6 +82,7 @@ open class ImageNumber(
             dstRect.set(x, top, x + dstCharWidth, top + dstCharHeight)
             canvas.drawBitmap(bitmap, srcRect, dstRect, null)
             current /= 10
-        } while (current > 0)
+            digitCount++
+        } while (current > 0 || digitCount < minDigits)
     }
 }

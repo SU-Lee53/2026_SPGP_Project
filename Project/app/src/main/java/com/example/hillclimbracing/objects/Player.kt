@@ -23,6 +23,8 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
     var fuel = 100f
     var distance = 0f
+    val difficultyRatio: Float
+        get() = (worldX / DIFFICULTY_DISTANCE_SCALE).coerceIn(0f, 1f)
 
     var isAccelerating = false
     var isBraking = false
@@ -33,6 +35,8 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         private set
 
     private var angularVelocity = 0f
+    private var stableGroundContact = false
+    private var flipTime = 0f
 
     private enum class BodySampleType {
         BOTTOM,
@@ -81,7 +85,10 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         val compressionVelocity: Float,
         val hardPenetration: Float,
         val isContacting: Boolean,
-    )
+    ) {
+        val hasLoadBearingContact: Boolean
+            get() = compression > 1.0f || hardPenetration > 0f
+    }
 
     private val rearWheel = Wheel(
         localX = -WHEEL_HALF_DISTANCE,
@@ -141,9 +148,20 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
             isDead = true
         }
 
+        updateFlipDeath(dt)
+    }
+
+    private fun updateFlipDeath(dt: Float) {
         val angleDegrees = Math.toDegrees(angleRadians.toDouble()).toFloat()
-        if (isGrounded && abs(angleDegrees) > FLIP_DEAD_ANGLE) {
-            isDead = true
+        val isFlipped = abs(angleDegrees) > FLIP_DEAD_ANGLE
+
+        if (stableGroundContact && isFlipped) {
+            flipTime += dt
+            if (flipTime >= FLIP_DEAD_TIME) {
+                isDead = true
+            }
+        } else {
+            flipTime = 0f
         }
     }
 
@@ -195,6 +213,8 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         // 차체가 지형에 파묻힌 정도만큼 살짝 위로 빼낸다.
         // 한 번에 전부 빼내면 튀어오르므로 일부만 보정한다.
         val pushAmount = maxBottomPenetration * BODY_PUSH_OUT_RATIO
+        val hitImpulseScale = (maxBottomPenetration / BODY_IMPULSE_FULL_PENETRATION)
+            .coerceIn(0.15f, 1.0f)
 
         if (frontHit) {
             // 앞부분이 오르막에 박힌 경우: 위로만 빼면 계속 낀다.
@@ -217,7 +237,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
                 velocityY *= 0.25f
             }
 
-            angularVelocity += FRONT_HIT_ANGULAR_IMPULSE
+            angularVelocity += FRONT_HIT_ANGULAR_IMPULSE * hitImpulseScale
         }
 
         if (rearHit) {
@@ -225,7 +245,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
             velocityY *= 0.55f
 
             // 뒤가 박히면 반대쪽 회전.
-            angularVelocity -= REAR_HIT_ANGULAR_IMPULSE
+            angularVelocity -= REAR_HIT_ANGULAR_IMPULSE * hitImpulseScale
         }
 
         // 바닥 긁힘은 속도만 약간 줄임.
@@ -235,12 +255,17 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
                 velocityY *= 0.25f
             }
         }
+
+        angularVelocity = angularVelocity.coerceIn(
+            -MAX_BODY_HIT_ANGULAR_VELOCITY,
+            MAX_BODY_HIT_ANGULAR_VELOCITY,
+        )
     }
 
     private fun updateHorizontalMovement(dt: Float) {
         if (isAccelerating && fuel > 0f) {
             velocityX += ENGINE_ACCEL * dt
-            fuel -= FUEL_CONSUMPTION * dt
+            fuel -= currentFuelConsumption() * dt
         }
 
         if (isBraking) {
@@ -258,6 +283,10 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         velocityX = velocityX.coerceIn(0f, MAX_SPEED)
 
         worldX += velocityX * dt
+    }
+
+    private fun currentFuelConsumption(): Float {
+        return FUEL_CONSUMPTION * (1f + difficultyRatio * FUEL_DIFFICULTY_MULTIPLIER)
     }
 
     private fun updateVerticalMovement(dt: Float) {
@@ -352,8 +381,10 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         val front = sampleWheel(frontWheel, dt)
 
         isGrounded = rear.isContacting || front.isContacting
+        stableGroundContact = rear.hasLoadBearingContact || front.hasLoadBearingContact
 
         if (!isGrounded) {
+            stableGroundContact = false
             applyAirRotationControl(dt)
 
             angleRadians += angularVelocity * dt
@@ -560,7 +591,9 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         // fuel
         private const val MAX_FUEL = 100f
-        private const val FUEL_CONSUMPTION = 9f
+        private const val FUEL_CONSUMPTION = 10.5f
+        private const val FUEL_DIFFICULTY_MULTIPLIER = 0.55f
+        private const val DIFFICULTY_DISTANCE_SCALE = 9000f
 
         // wheel
         private const val MAX_WHEEL_PENETRATION = 35f
@@ -589,6 +622,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         // game over
         private const val FLIP_DEAD_ANGLE = 100f
+        private const val FLIP_DEAD_TIME = 0.28f
 
         // air control
         private const val AIR_ROTATION_ACCEL = 11.0f
@@ -604,6 +638,8 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         private const val FRONT_HIT_ANGULAR_IMPULSE = 0.9f
         private const val REAR_HIT_ANGULAR_IMPULSE = 0.8f
+        private const val BODY_IMPULSE_FULL_PENETRATION = 45f
+        private const val MAX_BODY_HIT_ANGULAR_VELOCITY = 4.8f
         private const val BODY_PUSH_OUT_RATIO = 0.85f
         private const val FRONT_HIT_BACK_PUSH = 0.45f
         private const val REAR_HIT_FORWARD_PUSH = 0.25f
