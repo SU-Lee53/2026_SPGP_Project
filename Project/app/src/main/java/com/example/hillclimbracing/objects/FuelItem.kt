@@ -2,8 +2,6 @@ package com.example.hillclimbracing.objects
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.RectF
 
 class FuelItem(
@@ -12,18 +10,6 @@ class FuelItem(
     var y: Float,
 ) {
     var collected = false
-
-    private val paint = Paint().apply {
-        color = Color.rgb(255, 190, 40)
-        isAntiAlias = true
-    }
-
-    private val strokePaint = Paint().apply {
-        color = Color.rgb(160, 90, 0)
-        style = Paint.Style.STROKE
-        strokeWidth = 4f
-        isAntiAlias = true
-    }
 
     private val dstRect = RectF()
 

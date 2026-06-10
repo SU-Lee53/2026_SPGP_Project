@@ -1,12 +1,12 @@
 package com.example.hillclimbracing.objects
 
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.RectF
+import com.example.hillclimbracing.R
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 import kotlin.random.Random
-import android.graphics.Bitmap
-import com.example.hillclimbracing.R
 
 class FuelItemManager(
     private val gctx: GameContext,
@@ -128,8 +128,6 @@ class FuelItemManager(
     }
 
     companion object {
-        private const val SEED = 20260509
-
         private const val SPAWN_LOOKAHEAD_DISTANCE = 2200f
         private const val REMOVE_BACK_DISTANCE = 800f
 

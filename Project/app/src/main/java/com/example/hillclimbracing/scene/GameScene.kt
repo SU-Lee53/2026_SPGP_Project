@@ -8,6 +8,8 @@ import com.example.hillclimbracing.objects.GameHud
 import com.example.hillclimbracing.objects.GameProgress
 import com.example.hillclimbracing.objects.HillTerrain
 import com.example.hillclimbracing.objects.Player
+import com.example.hillclimbracing.objects.TouchDriveInput
+import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.Scene
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.World
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
@@ -16,7 +18,6 @@ class GameScene(
     gctx: GameContext,
 ) : Scene(gctx) {
     enum class Layer {
-        BACKGROUND,
         TERRAIN,
         ITEM,
         PLAYER,
@@ -30,6 +31,7 @@ class GameScene(
     private val player = Player(gctx, terrain)
     private val hud = GameHud(gctx, player)
     private val fuelItemManager = FuelItemManager(gctx, terrain, player)
+    private val touchDriveInput = TouchDriveInput(gctx, player)
 
     var cameraX = 0f
         private set
@@ -39,6 +41,7 @@ class GameScene(
         world.add(player, Layer.PLAYER)
         world.add(hud, Layer.UI)
         world.add(fuelItemManager, Layer.ITEM)
+        world.add(touchDriveInput, Layer.TOUCH)
     }
 
     override fun update(gctx: GameContext) {
@@ -63,39 +66,16 @@ class GameScene(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        handleDriveTouch(event)
+        super.onTouchEvent(event)
         return true
     }
 
-    private fun handleDriveTouch(event: MotionEvent) {
-        var accelerating = false
-        var braking = false
+    protected override fun touchObjects(): List<IGameObject> {
+        return world.objectsAt(Layer.TOUCH)
+    }
 
-        val action = event.actionMasked
-        val actionIndex = event.actionIndex
-
-        for (i in 0 until event.pointerCount) {
-            val released =
-                (action == MotionEvent.ACTION_POINTER_UP || action == MotionEvent.ACTION_UP) &&
-                        i == actionIndex
-
-            if (released) continue
-
-            val point = gctx.metrics.fromScreen(event.getX(i), event.getY(i))
-
-            if (point.x < gctx.metrics.width / 2f) {
-                braking = true
-            } else {
-                accelerating = true
-            }
-        }
-
-        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-            accelerating = false
-            braking = false
-        }
-
-        player.isAccelerating = accelerating
-        player.isBraking = braking
+    override fun onBackPressed(): Boolean {
+        PauseScene(gctx).push()
+        return true
     }
 }

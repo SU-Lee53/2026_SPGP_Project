@@ -1,6 +1,10 @@
 package com.example.hillclimbracing.objects
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.RectF
 import androidx.core.graphics.withRotation
+import com.example.hillclimbracing.R
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 import kotlin.math.abs
@@ -8,10 +12,6 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.RectF
-import com.example.hillclimbracing.R
 
 class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject {
     var worldX = 220f
@@ -37,6 +37,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
     private var angularVelocity = 0f
     private var stableGroundContact = false
     private var flipTime = 0f
+    private var bodyContactTime = 0f
 
     private enum class BodySampleType {
         BOTTOM,
@@ -105,8 +106,6 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
     )
     private var angleRadians = 0f
 
-    private val bodyRect = RectF()
-
     private val bodyBitmap: Bitmap = gctx.res.getBitmap(R.mipmap.player_body)
     private val wheelBitmap: Bitmap = gctx.res.getBitmap(R.mipmap.player_wheel)
 
@@ -138,7 +137,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         updateHorizontalMovement(dt)
         updateVerticalMovement(dt)
         resolveWheelGroundContact(dt)
-        resolveBodyTerrainCollision()
+        resolveBodyTerrainCollision(dt)
         updateWheelRotation(dt)
 
         distance = worldX / 10f
@@ -165,8 +164,9 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         }
     }
 
-    private fun resolveBodyTerrainCollision() {
+    private fun resolveBodyTerrainCollision(dt: Float) {
         var maxBottomPenetration = 0f
+        var maxSidePenetration = 0f
         var frontHit = false
         var rearHit = false
 
@@ -192,11 +192,13 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
                 BodySampleType.FRONT -> {
                     frontHit = true
+                    maxSidePenetration = max(maxSidePenetration, penetration)
                     maxBottomPenetration = max(maxBottomPenetration, penetration)
                 }
 
                 BodySampleType.REAR -> {
                     rearHit = true
+                    maxSidePenetration = max(maxSidePenetration, penetration)
                     maxBottomPenetration = max(maxBottomPenetration, penetration)
                 }
 
@@ -207,6 +209,34 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         }
 
         if (maxBottomPenetration <= 0f) {
+            bodyContactTime = 0f
+            return
+        }
+
+        val sideHit = frontHit || rearHit || maxSidePenetration > 0f
+        val dangerousPenetration = if (sideHit) {
+            BODY_SIDE_DANGEROUS_PENETRATION
+        } else {
+            BODY_BOTTOM_DANGEROUS_PENETRATION
+        }
+        bodyContactTime = if (maxBottomPenetration >= dangerousPenetration) {
+            bodyContactTime + dt
+        } else {
+            0f
+        }
+
+        val crashPenetration = if (sideHit) {
+            BODY_SIDE_CRASH_PENETRATION
+        } else {
+            BODY_BOTTOM_CRASH_PENETRATION
+        }
+        val contactDeathTime = if (sideHit) {
+            BODY_SIDE_CONTACT_DEATH_TIME
+        } else {
+            BODY_BOTTOM_CONTACT_DEATH_TIME
+        }
+        if (maxBottomPenetration >= crashPenetration || bodyContactTime >= contactDeathTime) {
+            isDead = true
             return
         }
 
@@ -214,7 +244,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         // 한 번에 전부 빼내면 튀어오르므로 일부만 보정한다.
         val pushAmount = maxBottomPenetration * BODY_PUSH_OUT_RATIO
         val hitImpulseScale = (maxBottomPenetration / BODY_IMPULSE_FULL_PENETRATION)
-            .coerceIn(0.15f, 1.0f)
+            .coerceIn(0.10f, 1.0f)
 
         if (frontHit) {
             // 앞부분이 오르막에 박힌 경우: 위로만 빼면 계속 낀다.
@@ -234,7 +264,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
             velocityX *= FRONT_HIT_SPEED_REMAIN
 
             if (velocityY > 0f) {
-                velocityY *= 0.25f
+                velocityY *= BODY_VERTICAL_REMAIN
             }
 
             angularVelocity += FRONT_HIT_ANGULAR_IMPULSE * hitImpulseScale
@@ -242,7 +272,9 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         if (rearHit) {
             velocityX *= REAR_HIT_SPEED_REMAIN
-            velocityY *= 0.55f
+            if (velocityY > 0f) {
+                velocityY *= BODY_VERTICAL_REMAIN
+            }
 
             // 뒤가 박히면 반대쪽 회전.
             angularVelocity -= REAR_HIT_ANGULAR_IMPULSE * hitImpulseScale
@@ -252,7 +284,7 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         if (!frontHit && !rearHit) {
             velocityX *= BODY_SCRAPE_SPEED_REMAIN
             if (velocityY > 0f) {
-                velocityY *= 0.25f
+                velocityY *= BODY_VERTICAL_REMAIN
             }
         }
 
@@ -294,20 +326,6 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         velocityY = velocityY.coerceAtMost(MAX_FALL_SPEED)
 
         y += velocityY * dt
-    }
-
-    private fun bodyPointToWorldX(localX: Float, localY: Float): Float {
-        val cosA = cos(angleRadians)
-        val sinA = sin(angleRadians)
-
-        return worldX + localX * cosA - localY * sinA
-    }
-
-    private fun bodyPointToWorldY(localX: Float, localY: Float): Float {
-        val cosA = cos(angleRadians)
-        val sinA = sin(angleRadians)
-
-        return y + localX * sinA + localY * cosA
     }
 
     private fun sampleWheel(wheel: Wheel, dt: Float): WheelSample {
@@ -424,7 +442,12 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         // 순수 서스펜션만 두면 초반 튜닝이 까다로워서,
         // 약한 보조 토크만 넣는다.
         // 나중에 완전 물리식으로 가고 싶으면 이 줄을 줄이거나 제거하면 된다.
-        angularVelocity += angleDiff(angleRadians, targetAngle) * ANGLE_ASSIST * dt
+        val angleAssist = when {
+            bodyContactTime > 0f -> BODY_CONTACT_ANGLE_ASSIST
+            rear.hasLoadBearingContact && front.hasLoadBearingContact -> ANGLE_ASSIST
+            else -> SINGLE_WHEEL_ANGLE_ASSIST
+        }
+        angularVelocity += angleDiff(angleRadians, targetAngle) * angleAssist * dt
 
         angleRadians += angularVelocity * dt
         angularVelocity *= GROUND_ANGULAR_DAMPING
@@ -548,15 +571,6 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         return from + (to - from) * t
     }
 
-    private fun lerpAngle(from: Float, to: Float, t: Float): Float {
-        var diff = to - from
-
-        while (diff > Math.PI.toFloat()) diff -= (Math.PI * 2.0).toFloat()
-        while (diff < -Math.PI.toFloat()) diff += (Math.PI * 2.0).toFloat()
-
-        return from + diff * t
-    }
-
     private fun angleDiff(from: Float, to: Float): Float {
         var diff = to - from
 
@@ -608,12 +622,14 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         private const val SUSPENSION_STIFFNESS = 320f
         private const val SUSPENSION_DAMPING = 16f
-        private const val SUSPENSION_TORQUE_SCALE = 0.010f
+        private const val SUSPENSION_TORQUE_SCALE = 0.006f
         private const val SUSPENSION_VISUAL_FOLLOW_SPEED = 40f
 
         // rotation
         private const val GROUND_ANGULAR_DAMPING = 0.90f
-        private const val ANGLE_ASSIST = 6.0f
+        private const val ANGLE_ASSIST = 3.0f
+        private const val SINGLE_WHEEL_ANGLE_ASSIST = 0.7f
+        private const val BODY_CONTACT_ANGLE_ASSIST = 0.15f
         private const val AIR_ANGULAR_DAMPING = 0.985f
 
         // terrain influence
@@ -631,18 +647,25 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         // Body
         private const val BODY_COLLISION_MARGIN = 5f
+        private const val BODY_SIDE_DANGEROUS_PENETRATION = 10f
+        private const val BODY_BOTTOM_DANGEROUS_PENETRATION = 20f
+        private const val BODY_SIDE_CRASH_PENETRATION = 34f
+        private const val BODY_BOTTOM_CRASH_PENETRATION = 58f
+        private const val BODY_SIDE_CONTACT_DEATH_TIME = 0.18f
+        private const val BODY_BOTTOM_CONTACT_DEATH_TIME = 0.42f
 
-        private const val FRONT_HIT_SPEED_REMAIN = 0.68f
-        private const val REAR_HIT_SPEED_REMAIN = 0.60f
+        private const val FRONT_HIT_SPEED_REMAIN = 0.45f
+        private const val REAR_HIT_SPEED_REMAIN = 0.48f
         private const val BODY_SCRAPE_SPEED_REMAIN = 0.82f
+        private const val BODY_VERTICAL_REMAIN = 0.30f
 
-        private const val FRONT_HIT_ANGULAR_IMPULSE = 0.9f
-        private const val REAR_HIT_ANGULAR_IMPULSE = 0.8f
+        private const val FRONT_HIT_ANGULAR_IMPULSE = 0.22f
+        private const val REAR_HIT_ANGULAR_IMPULSE = 0.18f
         private const val BODY_IMPULSE_FULL_PENETRATION = 45f
-        private const val MAX_BODY_HIT_ANGULAR_VELOCITY = 4.8f
-        private const val BODY_PUSH_OUT_RATIO = 0.85f
-        private const val FRONT_HIT_BACK_PUSH = 0.45f
-        private const val REAR_HIT_FORWARD_PUSH = 0.25f
+        private const val MAX_BODY_HIT_ANGULAR_VELOCITY = 2.4f
+        private const val BODY_PUSH_OUT_RATIO = 0.55f
+        private const val FRONT_HIT_BACK_PUSH = 0.18f
+        private const val REAR_HIT_FORWARD_PUSH = 0.12f
         private const val BODY_DRAW_WIDTH = 300f
         private const val BODY_DRAW_HEIGHT = 180f
         private const val BODY_DRAW_OFFSET_X = 3f
