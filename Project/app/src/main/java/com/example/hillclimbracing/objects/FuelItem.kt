@@ -40,6 +40,6 @@ class FuelItem(
 
     companion object {
         const val SIZE = 100f
-        const val FUEL_AMOUNT = 13f
+        const val FUEL_AMOUNT = 16f
     }
 }

@@ -3,6 +3,8 @@ package com.example.hillclimbracing.scene
 import android.graphics.Canvas
 import android.graphics.Color
 import android.view.MotionEvent
+import com.example.hillclimbracing.R
+import com.example.hillclimbracing.objects.CameraScrollBackground
 import com.example.hillclimbracing.objects.FuelItemManager
 import com.example.hillclimbracing.objects.GameHud
 import com.example.hillclimbracing.objects.GameProgress
@@ -16,8 +18,10 @@ import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 
 class GameScene(
     gctx: GameContext,
+    private val terrain: HillTerrain = HillTerrain(gctx),
 ) : Scene(gctx) {
     enum class Layer {
+        BACKGROUND,
         TERRAIN,
         ITEM,
         PLAYER,
@@ -27,7 +31,7 @@ class GameScene(
 
     override val world = World(Layer.entries.toTypedArray())
 
-    private val terrain = HillTerrain(gctx)
+    private val background = CameraScrollBackground(gctx, R.drawable.bg_mountain_loop, 0.16f)
     private val player = Player(gctx, terrain)
     private val hud = GameHud(gctx, player)
     private val fuelItemManager = FuelItemManager(gctx, terrain, player)
@@ -37,6 +41,7 @@ class GameScene(
         private set
 
     init {
+        world.add(background, Layer.BACKGROUND)
         world.add(terrain, Layer.TERRAIN)
         world.add(player, Layer.PLAYER)
         world.add(hud, Layer.UI)
@@ -52,11 +57,12 @@ class GameScene(
         terrain.cameraX = cameraX
         player.cameraX = cameraX
         fuelItemManager.cameraX = cameraX
+        background.cameraX = cameraX
 
         if (player.isDead) {
             val distance = player.distance.toInt()
             val bestDistance = GameProgress.updateBestDistance(gctx.view.context, distance)
-            GameOverScene(gctx, distance, bestDistance).change()
+            GameOverScene(gctx, distance, bestDistance, terrain, cameraX).change()
         }
     }
 

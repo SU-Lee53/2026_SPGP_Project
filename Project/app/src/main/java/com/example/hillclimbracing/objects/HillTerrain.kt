@@ -174,7 +174,8 @@ class HillTerrain(
     }
 
     private fun difficultyAt(worldX: Float): Float {
-        return (1f + worldX / DIFFICULTY_DISTANCE_SCALE).coerceAtMost(MAX_TERRAIN_DIFFICULTY)
+        return (START_TERRAIN_DIFFICULTY + worldX / DIFFICULTY_DISTANCE_SCALE)
+            .coerceAtMost(MAX_TERRAIN_DIFFICULTY)
     }
 
     private fun findSegmentIndex(worldX: Float): Int {
@@ -208,10 +209,11 @@ class HillTerrain(
     companion object {
         private const val START_Y = 1050f
 
-        private const val SEGMENT_WIDTH = 200f
-        private const val MAX_DELTA_Y = 112f
-        private const val DELTA_MOMENTUM = 0.43f
-        private const val DIFFICULTY_DISTANCE_SCALE = 9000f
+        private const val SEGMENT_WIDTH = 240f
+        private const val MAX_DELTA_Y = 104f
+        private const val DELTA_MOMENTUM = 0.50f
+        private const val START_TERRAIN_DIFFICULTY = 0.64f
+        private const val DIFFICULTY_DISTANCE_SCALE = 7600f
         private const val MAX_TERRAIN_DIFFICULTY = 1.45f
 
         private const val LOOKAHEAD_DISTANCE = 1400f

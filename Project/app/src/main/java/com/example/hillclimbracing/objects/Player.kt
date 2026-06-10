@@ -605,9 +605,9 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
         // fuel
         private const val MAX_FUEL = 100f
-        private const val FUEL_CONSUMPTION = 10.5f
-        private const val FUEL_DIFFICULTY_MULTIPLIER = 0.55f
-        private const val DIFFICULTY_DISTANCE_SCALE = 9000f
+        private const val FUEL_CONSUMPTION = 8.8f
+        private const val FUEL_DIFFICULTY_MULTIPLIER = 0.42f
+        private const val DIFFICULTY_DISTANCE_SCALE = 10000f
 
         // wheel
         private const val MAX_WHEEL_PENETRATION = 35f
@@ -649,10 +649,10 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
         private const val BODY_COLLISION_MARGIN = 5f
         private const val BODY_SIDE_DANGEROUS_PENETRATION = 10f
         private const val BODY_BOTTOM_DANGEROUS_PENETRATION = 20f
-        private const val BODY_SIDE_CRASH_PENETRATION = 34f
-        private const val BODY_BOTTOM_CRASH_PENETRATION = 58f
-        private const val BODY_SIDE_CONTACT_DEATH_TIME = 0.18f
-        private const val BODY_BOTTOM_CONTACT_DEATH_TIME = 0.42f
+        private const val BODY_SIDE_CRASH_PENETRATION = 40f
+        private const val BODY_BOTTOM_CRASH_PENETRATION = 64f
+        private const val BODY_SIDE_CONTACT_DEATH_TIME = 0.24f
+        private const val BODY_BOTTOM_CONTACT_DEATH_TIME = 0.50f
 
         private const val FRONT_HIT_SPEED_REMAIN = 0.45f
         private const val REAR_HIT_SPEED_REMAIN = 0.48f

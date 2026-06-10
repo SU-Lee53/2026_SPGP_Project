@@ -64,11 +64,11 @@ class FuelItemManager(
     private fun shouldSpawnFuel(): Boolean {
         // 연료가 많을수록 덜 나오고, 연료가 적으면 조금 더 잘 나오게 한다.
         val baseChance = when {
-            player.fuel > 70f -> 0.46f
-            player.fuel > 40f -> 0.62f
-            else -> 0.78f
+            player.fuel > 70f -> 0.55f
+            player.fuel > 40f -> 0.70f
+            else -> 0.84f
         }
-        val spawnChance = baseChance - player.difficultyRatio * 0.15f
+        val spawnChance = baseChance - player.difficultyRatio * 0.10f
 
         return random.nextFloat() < spawnChance
     }
@@ -79,23 +79,23 @@ class FuelItemManager(
 
         when {
             player.fuel > 70f -> {
-                minInterval = 2500f
-                maxInterval = 3700f
+                minInterval = 2100f
+                maxInterval = 3200f
             }
 
             player.fuel > 40f -> {
-                minInterval = 1900f
-                maxInterval = 3000f
+                minInterval = 1600f
+                maxInterval = 2600f
             }
 
             else -> {
                 // 너무 죽기 직전이면 완전 랜덤으로 방치하지 않고 약간 구제.
-                minInterval = 1300f
-                maxInterval = 2100f
+                minInterval = 1100f
+                maxInterval = 1800f
             }
         }
 
-        val difficultyOffset = player.difficultyRatio * 450f
+        val difficultyOffset = player.difficultyRatio * 320f
         return random.nextFloat() * (maxInterval - minInterval) + minInterval + difficultyOffset
     }
 
