@@ -2,12 +2,16 @@ package com.example.hillclimbracing.objects
 
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Shader
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.random.Random
 
 class HillTerrain(
@@ -26,14 +30,19 @@ class HillTerrain(
     private val random = Random(Random.nextInt())
     private var previousDeltaY = 0f
 
-    private val fillPaint = Paint().apply {
-        color = Color.rgb(95, 170, 80)
+    private val soilPaint = Paint().apply {
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+
+    private val grassPaint = Paint().apply {
+        color = Color.rgb(84, 166, 63)
         style = Paint.Style.FILL
         isAntiAlias = true
     }
 
     private val linePaint = Paint().apply {
-        color = Color.rgb(45, 110, 45)
+        color = Color.rgb(39, 111, 45)
         style = Paint.Style.STROKE
         strokeWidth = 5f
         isAntiAlias = true
@@ -51,16 +60,20 @@ class HillTerrain(
     override fun draw(canvas: Canvas) {
         if (points.size < 2) return
 
-        val startX = cameraX - SEGMENT_WIDTH
-        val endX = cameraX + gctx.metrics.width + SEGMENT_WIDTH
+        val visibleLeft = min(0f, gctx.metrics.screenRect.left)
+        val visibleRight = max(gctx.metrics.width, gctx.metrics.screenRect.right)
+        val visibleBottom = max(gctx.metrics.height, gctx.metrics.screenRect.bottom)
+        val startX = cameraX + visibleLeft - SEGMENT_WIDTH
+        val endX = cameraX + visibleRight + SEGMENT_WIDTH
 
         ensurePointsUntil(endX + SEGMENT_WIDTH)
 
-        drawTerrainFill(canvas, startX, endX)
+        drawTerrainSoil(canvas, startX, endX, visibleBottom)
+        drawGrassCap(canvas, startX, endX)
         drawTerrainLine(canvas, startX, endX)
     }
 
-    private fun drawTerrainFill(canvas: Canvas, startX: Float, endX: Float) {
+    private fun drawTerrainSoil(canvas: Canvas, startX: Float, endX: Float, bottomY: Float) {
         path.reset()
 
         path.moveTo(startX - cameraX, getGroundY(startX))
@@ -72,11 +85,49 @@ class HillTerrain(
         }
 
         path.lineTo(endX - cameraX, getGroundY(endX))
-        path.lineTo(endX - cameraX, gctx.metrics.height)
-        path.lineTo(startX - cameraX, gctx.metrics.height)
+        path.lineTo(endX - cameraX, bottomY)
+        path.lineTo(startX - cameraX, bottomY)
         path.close()
 
-        canvas.drawPath(path, fillPaint)
+        soilPaint.shader = LinearGradient(
+            0f,
+            MIN_Y,
+            0f,
+            bottomY,
+            intArrayOf(
+                Color.rgb(206, 113, 45),
+                Color.rgb(172, 82, 34),
+                Color.rgb(118, 57, 31),
+            ),
+            floatArrayOf(0f, 0.46f, 1f),
+            Shader.TileMode.CLAMP,
+        )
+        canvas.drawPath(path, soilPaint)
+    }
+
+    private fun drawGrassCap(canvas: Canvas, startX: Float, endX: Float) {
+        path.reset()
+
+        path.moveTo(startX - cameraX, getGroundY(startX))
+
+        var x = startX + DRAW_SAMPLE_STEP
+        while (x <= endX) {
+            path.lineTo(x - cameraX, getGroundY(x))
+            x += DRAW_SAMPLE_STEP
+        }
+
+        path.lineTo(endX - cameraX, getGroundY(endX))
+
+        x = endX
+        while (x >= startX) {
+            path.lineTo(x - cameraX, getGroundY(x) + GRASS_DEPTH)
+            x -= DRAW_SAMPLE_STEP
+        }
+
+        path.lineTo(startX - cameraX, getGroundY(startX) + GRASS_DEPTH)
+        path.close()
+
+        canvas.drawPath(path, grassPaint)
     }
 
     private fun drawTerrainLine(canvas: Canvas, startX: Float, endX: Float) {
@@ -96,6 +147,10 @@ class HillTerrain(
     }
 
     fun getGroundY(worldX: Float): Float {
+        if (worldX <= points.first().x) {
+            return points.first().y
+        }
+
         ensurePointsUntil(worldX + SEGMENT_WIDTH * 2f)
 
         val index = findSegmentIndex(worldX)
@@ -109,6 +164,10 @@ class HillTerrain(
     }
 
     fun getSlopeAngle(worldX: Float): Float {
+        if (worldX <= points.first().x) {
+            return 0f
+        }
+
         ensurePointsUntil(worldX + SEGMENT_WIDTH * 2f)
 
         val index = findSegmentIndex(worldX)
@@ -147,7 +206,20 @@ class HillTerrain(
         val momentum = (DELTA_MOMENTUM - (difficulty - 1f) * 0.10f).coerceAtLeast(0.30f)
 
         val rawDelta = random.nextFloat() * 2f - 1f
-        val targetDeltaY = rawDelta * maxDeltaY
+        var targetDeltaY = rawDelta * maxDeltaY
+
+        val launchDropChance = LAUNCH_DROP_CHANCE * difficulty.coerceAtMost(1f)
+        if (last.x > START_LAUNCH_DISTANCE &&
+            previousDeltaY < -maxDeltaY * CREST_SETUP_SLOPE &&
+            random.nextFloat() < launchDropChance
+        ) {
+            targetDeltaY = max(targetDeltaY, maxDeltaY * randomRange(0.62f, 1.0f))
+        } else if (
+            previousDeltaY > maxDeltaY * VALLEY_SETUP_SLOPE &&
+            random.nextFloat() < VALLEY_RECOVERY_CHANCE
+        ) {
+            targetDeltaY = min(targetDeltaY, -maxDeltaY * randomRange(0.42f, 0.75f))
+        }
 
         var deltaY = previousDeltaY * momentum + targetDeltaY * (1f - momentum)
 
@@ -180,6 +252,7 @@ class HillTerrain(
 
     private fun findSegmentIndex(worldX: Float): Int {
         if (points.size < 2) return 0
+        if (worldX <= points.first().x) return 0
 
         var i = 0
         while (i < points.lastIndex) {
@@ -209,12 +282,18 @@ class HillTerrain(
     companion object {
         private const val START_Y = 1050f
 
-        private const val SEGMENT_WIDTH = 240f
-        private const val MAX_DELTA_Y = 104f
-        private const val DELTA_MOMENTUM = 0.50f
+        private const val SEGMENT_WIDTH = 220f
+        private const val MAX_DELTA_Y = 126f
+        private const val DELTA_MOMENTUM = 0.42f
         private const val START_TERRAIN_DIFFICULTY = 0.64f
         private const val DIFFICULTY_DISTANCE_SCALE = 7600f
         private const val MAX_TERRAIN_DIFFICULTY = 1.45f
+
+        private const val START_LAUNCH_DISTANCE = 360f
+        private const val LAUNCH_DROP_CHANCE = 0.46f
+        private const val CREST_SETUP_SLOPE = 0.32f
+        private const val VALLEY_SETUP_SLOPE = 0.56f
+        private const val VALLEY_RECOVERY_CHANCE = 0.20f
 
         private const val LOOKAHEAD_DISTANCE = 1400f
         private const val REMOVE_BACK_DISTANCE = 800f
@@ -225,5 +304,10 @@ class HillTerrain(
         private const val EDGE_BOUNCE = 0.62f
 
         private const val DRAW_SAMPLE_STEP = 10f
+        private const val GRASS_DEPTH = 58f
+    }
+
+    private fun randomRange(from: Float, to: Float): Float {
+        return from + (to - from) * random.nextFloat()
     }
 }
