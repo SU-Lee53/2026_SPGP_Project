@@ -9,6 +9,7 @@ import com.example.hillclimbracing.objects.CameraScrollBackground
 import com.example.hillclimbracing.objects.HillTerrain
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.Button
 import kr.ac.tukorea.ge.spgp2026.a2dg.objects.IGameObject
+import kr.ac.tukorea.ge.spgp2026.a2dg.objects.Sprite
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.Scene
 import kr.ac.tukorea.ge.spgp2026.a2dg.scene.World
 import kr.ac.tukorea.ge.spgp2026.a2dg.view.GameContext
@@ -23,24 +24,19 @@ class GameOverScene(
     enum class Layer {
         BACKGROUND,
         TERRAIN,
+        LOGO,
         BUTTON,
     }
 
     override val world = World(Layer.entries.toTypedArray())
 
     private val background = CameraScrollBackground(gctx, R.drawable.bg_mountain_loop, 0.16f)
+    private val logo = Sprite(gctx, R.drawable.game_over_logo)
     private val retryButton = Button(gctx, R.drawable.btn_retry, 450f, 640f, 320f, 96f) { pressed ->
         if (pressed) {
             GameScene(gctx).change()
         }
         true
-    }
-
-    private val titlePaint = Paint().apply {
-        color = Color.BLACK
-        textSize = 72f
-        textAlign = Paint.Align.CENTER
-        isAntiAlias = true
     }
 
     private val textPaint = Paint().apply {
@@ -53,9 +49,12 @@ class GameOverScene(
     init {
         terrain.cameraX = cameraX
         background.cameraX = cameraX
+        logo.setCenter(450f, 320f)
+        logo.setSize(620f, 164f)
 
         world.add(background, Layer.BACKGROUND)
         world.add(terrain, Layer.TERRAIN)
+        world.add(logo, Layer.LOGO)
         world.add(retryButton, Layer.BUTTON)
     }
 
@@ -64,7 +63,6 @@ class GameOverScene(
 
         canvas.drawColor(Color.rgb(220, 240, 255))
         super.draw(canvas)
-        canvas.drawText("Game Over", centerX, 330f, titlePaint)
         canvas.drawText("Distance: ${distance}m", centerX, 445f, textPaint)
         canvas.drawText("Best Distance: ${bestDistance}m", centerX, 510f, textPaint)
     }

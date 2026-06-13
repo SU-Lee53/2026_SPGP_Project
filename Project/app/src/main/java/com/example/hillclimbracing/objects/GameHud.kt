@@ -15,8 +15,10 @@ class GameHud(
     gctx: GameContext,
     private val car: Player,
 ) : IGameObject {
+    private val context = gctx.view.context
     private val panelBitmap: Bitmap = gctx.res.getBitmap(R.mipmap.classic_hud_panel)
     private val panelRect = RectF(18f, 22f, 882f, 243f)
+    private var bestDistance = GameProgress.getBestDistance(context)
 
     private val odometer = ImageNumber(
         gctx = gctx,
@@ -32,6 +34,11 @@ class GameHud(
         color = Color.rgb(28, 36, 42),
     )
 
+    private val bestLabel = LabelUtil(
+        textSize = 27f,
+        color = Color.rgb(45, 55, 62),
+    )
+
     private val needlePaint = Paint().apply {
         color = Color.rgb(235, 52, 40)
         strokeWidth = 7f
@@ -40,8 +47,10 @@ class GameHud(
     }
 
     override fun update(gctx: GameContext) {
-        odometer.value = car.distance.toInt()
+        val distance = car.distance.toInt()
+        odometer.value = distance
         odometer.update(gctx)
+        bestDistance = maxOf(bestDistance, distance)
     }
 
     override fun draw(canvas: Canvas) {
@@ -49,6 +58,7 @@ class GameHud(
         odometer.draw(canvas)
         drawFuelNeedle(canvas)
 
+        bestLabel.draw(canvas, "BEST ${bestDistance}m", 590f, 225f)
         hintLabel.draw(canvas, "Left: Brake / Right: Gas", 40f, 1510f)
     }
 
