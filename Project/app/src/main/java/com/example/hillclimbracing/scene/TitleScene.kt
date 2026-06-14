@@ -32,7 +32,7 @@ class TitleScene(
     private val logo = Sprite(gctx, R.drawable.menu_logo)
     private val startButton = Button(gctx, R.drawable.btn_start, 450f, 720f, 320f, 96f) { pressed ->
         if (pressed) {
-            GameScene(gctx, terrain).change()
+            GameScene(gctx).change()
         }
         true
     }

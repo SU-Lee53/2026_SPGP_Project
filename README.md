@@ -1,169 +1,150 @@
-# 중간발표
+# Hill Climb Challenge
 
-## 게임소개
+## 게임 소개
 
-- 2D 횡스크롤 언덕 주행 게임
-- 차량을 조작하여 울퉁불퉁한 언덕 지형을 주어진 연료로 최대한 멀리 주행하는 것을 목표로 함
-- 차량이 뒤집히거나 연료를 모두 소모하면 게임 종료
+* `Hill Climb Racing` 방식의 2D 횡스크롤 언덕 주행 게임
+* 차량을 조작하여 연료가 떨어지거나 뒤집히기 전까지 최대한 멀리 주행하는 것이 목표
+* 차이점
+    * 수업에서 만든 2D 게임 구조를 기반으로 구현
+    * 랜덤 언덕 지형, 차량 물리, 연료 아이템, 최고 기록 저장을 직접 개발
+    * 모바일 터치 입력에 맞춰 왼쪽은 브레이크, 오른쪽은 가속으로 구성
 
-## 진행상황
+## 개발 계획 / 일정 / 실제 진행
 
-- [x]  플레이어 차량 → 100%
-- [x]  무한 진행을 위한 언덕 지형 생성 시스템 → 100%
-- [x]  수집 아이템 (연료) → 100%
-- [ ]  3개의 Scene (시작, 플레이, 종료) → 80% (UI 디자인 약간 더 개선 필요)
-- [ ]  UI 요소 → 50%
-    - [ ]  연료 표시  → 80% (UI 디자인 약간 더 개선 필요)
-    - [ ]  거리 표시 → 80% (UI 디자인 약간 더 개선 필요)
-    - [ ]  최고 기록 표시 → 0%
-- [ ]  배경 레이어 2종 → 50%
-    - [ ]  뒷배경 → 50% (하늘색 단색 사용중)
-    - [ ]  언덕 지형 → 50% (초록색 단색 사용중)
-- [ ]  충돌 판정 → 90% (약간 버그 존재)
-    - [ ]  바퀴, 차량 ↔ 언덕 지형 → 90% (지면에 차량 앞/뒤 접촉시 처리가 약간 어색)
-    - [ ]  차량 전복 판정 → 90% (가끔 땅에 닿기 전에 사망판정됨)
-- [ ]  중력과 간단한 차량 물리 → 96%
-    - [x]  속도 변화 → 100%
-    - [x]  회전 → 100%
-    - [ ]  간단한 서스펜션 효과 → 90% (약간 버그 존재)
+### 개발 진척도
 
-## Commit 진행 내역
-- <img src="Images/github_insight_pulse.png" width="100%">
+| 항목 | 계획 | 실제 진행 |
+| --- | --- | --- |
+| 플레이어 차량 | 차량 이동, 가속, 감속, 회전 | 완료 |
+| 랜덤 언덕 지형 | 무한 진행 가능한 지형 생성 | 완료 |
+| 연료 시스템 | 연료 소모, 아이템 획득, 회복 | 완료 |
+| Scene 구성 | 시작, 플레이, 종료 화면 | 완료 |
+| 추가 Scene | 필요 시 일시정지 화면 | Pause Scene 추가 구현 |
+| UI / HUD | 거리, 연료, 최고 기록 표시 | 완료 |
+| 차량 물리 | 중력, 회전, 서스펜션 | 완료 |
+| 충돌 판정 | 바퀴 / 차체 / 지형 충돌 | 완료, 일부 어색한 보정 남음 |
+| 그래픽 리소스 | 배경, 차량, 버튼, 로고 | 완료 |
+| 사운드 | 효과음, 배경음 | 미구현 |
 
-| 주차 | Commits |
-| --- | --- |
-| 4월 2주차 (04.05 ~ 04.11) | 3 |
-| 4월 3주차 (04.12 ~ 04.17) | 0 |
-| 4월 4주차 (04.18 ~ 04.25) | 0 |
-| 5월 1주차 (04.26 ~ 05.02) | 0 |
-| 5월 2주차 (05.03 ~ 05.09) | 13 |
+### 주차별 커밋 횟수
 
-## Activity 구성
+GitHub commit log와 GitHub Insights Pulse 자료를 기준으로 정리하였다.
 
-```mermaid
-flowchart LR
-    A[MainActivity<br/>앱 시작 화면] -->|Start Button| B[HillClimbActivity<br/>게임 실행 Activity]
-    A -->|DEBUG build<br/>1초 후 자동 시작| B
-    B -->|createRootScene| C[TitleScene]
-    C -->|Start / Touch| D[GameScene]
-    D -->|Fuel Empty / Flip| E[GameOverScene]
-    E -->|Retry| D
-```
+![github_insight_pulse](Images/github_insight_pulse.png)
 
-## Scene 구성 및 전환 관계
+| 주차 | Commits | 주요 진행 |
+| --- | ---: | --- |
+| 03.30 ~ 04.05 | 3 | 1차 README, 초기 프로젝트 정리 |
+| 04.06 ~ 05.03 | 0 | 설계 및 리소스 준비 |
+| 05.04 ~ 05.10 | 19 | a2dg 적용, Scene / 차량 / 지형 / 연료 / 서스펜션 구현 |
+| 05.11 ~ 05.31 | 0 | 중간 점검, 구현 방향 정리 |
+| 06.01 ~ 06.07 | 1 | HUD 보강, 난이도 조정 |
+| 06.08 ~ 06.14 | 4 | 배경, 로고, 이미지 버튼, 충돌 보정, 게임오버 화면 정리 |
 
-```mermaid
-flowchart LR
-    A[TitleScene] -->|Start / Touch| B[GameScene]
-    B -->|Fuel Empty| C[GameOverScene]
-    B -->|Vehicle Flip| C
-    C -->|Retry / Touch| B
-```
+### 목표 변경 사항
 
-- TitleScene
-    - 게임 시작
-    - 게임 제목과 시작 안내를 표시하고, 터치 입력을 받으면 GameScene으로 전환
-- GameScene
-    - 게임 플레이 Scene
-    - 랜덤 지형, Player, 연료 아이템, HUD, 입력 처리를 포함
-- GameOverScene
-    - 게임 종료
-    - 주행 거리와 최고 기록을 표시하고, 다시 시작 입력을 받으면 GameOverScene으로 전환
+* 기존 목표였던 `시작 - 플레이 - 종료` 구조는 유지하였다.
+* 후반에는 새 기능 추가보다 차량 조작감과 충돌 판정 안정화에 집중하였다.
+* 사운드와 추가 스테이지는 시간상 제외하였다.
+* 대신 최고 기록 저장, Pause Scene, 이미지 버튼, 배경 리소스를 추가하였다.
 
-## GameObject 구성
-### 요약
+## 구현 내용
 
-| Player | HillTerrain | FuelItem / FuelItemManager | GameHud |
-| --- | --- | --- | --- |
-| 플레이어 차량 | 랜덤 지형 | 아이템 / 아이템 생성 및 충돌 관리 | 거리, 연료 등의 상태 표시 |
+### 사용된 기술
 
-### Player
+* Kotlin
+* Android Activity / ViewBinding
+* Android Canvas
+* Bitmap 기반 2D 렌더링
+* MotionEvent 기반 터치 입력
+* SharedPreferences 기반 최고 기록 저장
+* Gradle Kotlin DSL
+* 직접 구성한 `a2dg` 2D 게임 프레임워크
 
-- Class 구성 정보
-    - 차량의 월드 위치, 속도, 수직 속도, 회전, 연료, 거리, 접지 상태를 관리
-    - 차량은 차체 이미지와 앞/뒤 바퀴 이미지로 분리됨
-        - 바퀴는 서스펜션 길이에 따라 차체 아래에서 별도로 그려짐
-- 상호작용 정보
-    - HillTerrain으로부터 현재 바퀴 위치의 지면 높이를 받아옴
-    - FuelItemManager가 연료 아이템과의 충돌을 검사할 때 Player의 충돌 영역을 사용
-    - GameScene은 Player의 isDead 상태를 확인하여 GameOverScene으로 전환
-    - 좌우 터치 입력에 따라 isAccelerating, isBraking 값이 변경됨
-- 핵심 코드 설명
-    - updateHorizontalMovement()
-        - 가속, 감속, 마찰, 최고 속도를 처리
-    - updateVerticalMovement()
-        - 중력과 수직 속도를 적용
-    - resolveWheelGroundContact()
-        - 앞/뒤 바퀴가 지형에 닿았는지 검사하고 서스펜션 힘을 적용
-    - applyAirRotationControl()
-        - 공중에서 가속/브레이크 입력으로 차량 자세를 제어
-    - resolveBodyTerrainCollision()
-        - 차체가 지형에 파고들었을 때 속도 감소, 위치 보정, 전복 판정을 처리
+### 참고한 것들
 
-### HillTerrain
+* `Hill Climb Racing`의 기본 플레이 구조
+* Android Canvas 사용 방식
+* Android MotionEvent 터치 입력 방식
+* Android SharedPreferences 저장 방식
+* GitHub commit log / Insights Pulse
 
-- Class 구성 정보
-    - 무한히 이어지는 랜덤 언덕 지형을 생성하고 그림
-    - 지형은 여러 개의 점으로 구성되며, 각 점 사이를 보간하여 부드러운 언덕 형태를 만듬
-- 상호작용 정보
-    - Player 가 바퀴 접지와 기울기 계산을 위해 getGroundY(), getSlopeAngle() 을 호출
-    - FuelItemManager 가 연료 아이템을 지형 위에 배치하기 위해 getGroundY() 를 호출
-    - GameScene 에서 cameraX 값을 전달받아 스크롤 위치에 맞춰 지형을 그림
-- 핵심 코드 설명
-    - ensurePointsUntil()
-        - 카메라 앞쪽에 필요한 거리만큼 지형 점을 미리 생성
-    - removeOldPoints()
-        - 화면 뒤쪽으로 지나간 오래된 지형 점을 제거
-    - getGroundY(worldX)
-        - 특정 월드 x 위치에서의 지형 y 좌표를 반환
-    - getSlopeAngle(worldX)
-        - 특정 위치의 지형 기울기를 계산하여 차량 회전에 사용
+### 수업 내용에서 차용한 것
 
-### FuelItemManager / FuelItem
+* Game Loop의 `update()` / `draw()` 구조
+* Scene 단위 화면 전환
+* GameObject와 World 구조
+* Layer 순서에 따른 update / draw 처리
+* Sprite와 Bitmap 리소스 사용
+* 터치 이벤트를 게임 객체로 전달하는 방식
 
-- Class 구성 정보
-    - 플레이어가 획득할 수 있는 연료 아이템
-    - FuelItemManager 는 여러 개의 FuelItem을 생성, 업데이트, 충돌 검사, 제거를 수행함
-- 상호작용 정보
-    - HillTerrain 의 지면 높이를 이용해 연료 아이템을 지형 위에 배치
-    - Player 와 FuelItem 의 충돌 영역이 겹치면 연료를 회복
-    - 획득한 아이템이나 지나간 아이템 제거
-- 핵심 코드 설명
-    - spawnItemsAhead()
-        - Player 앞쪽 일정 거리까지 연료 아이템을 랜덤하게 생성
-    - checkCollision()
-        - Player와 FuelItem의 RectF 충돌을 검사한다.
-    - removeOldItems()
-        - 이미 획득했거나 화면 뒤로 지나간 아이템을 제거한다.
+### 직접 개발한 것
 
-### GameHud
+* `Player`
+    * 차량 이동, 가속 / 감속, 중력, 회전, 서스펜션, 전복 판정
+* `HillTerrain`
+    * 무한 랜덤 언덕 지형 생성, 경사도 계산, 카메라 스크롤 대응
+* `FuelItemManager`
+    * 연료 아이템 생성, 지형 위 배치, 충돌 검사, 연료 회복
+* `GameHud`
+    * 거리, 연료, 최고 기록 표시
+* `TitleScene`, `GameScene`, `PauseScene`, `GameOverScene`
+    * 시작, 플레이, 일시정지, 게임오버 흐름 구성
+* `GameProgress`
+    * 최고 기록 저장 및 갱신
 
-- Class 구성 정보
-    - 게임 진행 중 필요한 정보를 화면에 표시하는 UI 객체
-- 상호작용 정보
-    - Player 의 거리와 연료 값을 읽어서 화면에 표시
-- 핵심 코드 설명
-    - draw()
-        - 현재 거리, 연료량, 조작 안내를 화면에 출력
+## 아쉬운 점
 
-## UX
+### 하고 싶었지만 못 한 것
 
-```mermaid
-flowchart LR
-    A([앱 실행]) --> B[MainActivity<br/>시작 화면]
-    B -->|Start 버튼| C[TitleScene<br/>게임 타이틀]
-    C -->|화면 터치| D[GameScene<br/>플레이 화면]
-    D -->|연료 0| E[GameOverScene<br/>결과 화면]
-    D -->|차량 전복| E
-    E -->|화면 터치 / Retry| D
-```
+* 효과음과 배경음 추가
+* 다양한 차량 추가
+* 스테이지 선택
+* 튜토리얼 화면
+* 더 긴 플레이 테스트를 통한 난이도 조정
 
-```mermaid
-flowchart LR
-    A[화면 좌/우 터치] --> B[차량 가속 / 감속]
-    B --> C[언덕 주행]
-    C --> D[연료 / 거리 HUD 확인]
-    D --> E{계속 주행 가능?}
-    E -->|가능| A
-    E -->|연료 0 / 전복| F[GameOverScene]
-```
+### 스토어에 판매한다면 보충할 것
+
+* 사운드 옵션
+* 조작 튜토리얼
+* 차량 업그레이드 시스템
+* 여러 배경 테마
+* 업적 / 랭킹
+* 개인정보 처리 안내
+* 광고 또는 결제 정책
+
+### 해결하지 못한 문제 / 버그
+
+* 급경사에서 차체가 지형에 닿을 때 보정이 약간 어색한 순간이 있다.
+* 차량 물리는 게임 플레이가 가능한 수준이지만 실제 물리처럼 자연스럽지는 않다.
+* 연료 등장 간격과 난이도 상승 곡선은 더 많은 테스트가 필요하다.
+
+### 프로젝트 중 어려웠던 점
+
+* 바퀴 접지, 차체 충돌, 전복 판정이 서로 영향을 줘서 차량 물리 튜닝이 어려웠다.
+* 작은 수치 변경이 전체 조작감에 큰 영향을 주었다.
+* 카메라 스크롤 때문에 월드 좌표와 화면 좌표를 계속 구분해야 했다.
+
+## 수업에 대한 내용
+
+### 기대한 것
+
+* 스마트폰에서 직접 실행되는 2D 게임을 만들어 보는 것
+* Android 환경에서 게임 루프와 터치 입력을 직접 다뤄 보는 것
+
+### 얻은 것
+
+* Android 프로젝트 구조에 익숙해졌다.
+* Game Loop, Scene, GameObject 구조를 이해했다.
+* Canvas 기반 2D 렌더링을 직접 사용해 보았다.
+* 입력, 충돌, 리소스, 밸런싱이 서로 연결되어야 게임처럼 느껴진다는 것을 경험했다.
+
+### 얻지 못한 것
+
+* 사운드 적용까지 충분히 다루지 못했다.
+* 배포 직전 수준의 완성도까지 끌어올릴 시간은 부족했다.
+
+### 더 좋은 수업이 되기 위한 제안
+
+* 초반에 작은 완성 예제를 단계별로 한 번 더 따라 만들면 좋을 것 같다.
+* 개인 프로젝트 전에 APK 서명과 해상도 대응을 짧게 실습하면 좋을 것 같다.
