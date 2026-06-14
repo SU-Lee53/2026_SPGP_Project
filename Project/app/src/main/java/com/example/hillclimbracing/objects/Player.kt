@@ -457,13 +457,13 @@ class Player(gctx: GameContext, private val terrain: HillTerrain) : IGameObject 
 
     private fun applyAirRotationControl(dt: Float) {
         if (isAccelerating && fuel > 0f) {
-            // 가속: 뒷바퀴를 들어 올리는 방향
-            angularVelocity += AIR_ROTATION_ACCEL * dt
+            // 가속: Hill Climb Racing처럼 반시계 방향으로 회전
+            angularVelocity -= AIR_ROTATION_ACCEL * dt
         }
 
         if (isBraking) {
-            // 브레이크: 뒷바퀴를 내리는 방향
-            angularVelocity -= AIR_ROTATION_ACCEL * dt
+            // 브레이크: 가속과 반대 방향으로 회전
+            angularVelocity += AIR_ROTATION_ACCEL * dt
         }
 
         // 공중에서 아무 입력도 없으면 천천히 회전이 줄어들게 한다.

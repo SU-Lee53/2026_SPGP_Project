@@ -58,7 +58,7 @@ class GameHud(
         odometer.draw(canvas)
         drawFuelNeedle(canvas)
 
-        bestLabel.draw(canvas, "BEST ${bestDistance}m", 590f, 225f)
+        bestLabel.draw(canvas, "BEST ${bestDistance}m", 40f, 286f)
         hintLabel.draw(canvas, "Left: Brake / Right: Gas", 40f, 1510f)
     }
 
